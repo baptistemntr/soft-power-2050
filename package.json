@@ -1,0 +1,14 @@
+{
+  "name": "soft-power-2050",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Soft Power 2050 — classroom team game (Netlify Functions + Blobs, vanilla front)",
+  "scripts": {
+    "test": "node --test tests/",
+    "simulate": "node scripts/simulate.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.2"
+  }
+}

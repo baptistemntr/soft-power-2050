@@ -1,0 +1,4 @@
+node_modules/
+.netlify/
+screenshots/
+.DS_Store
