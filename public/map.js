@@ -50,13 +50,14 @@
     const teamIds = data.teams.map((t) => t.id);
     const TEAM = Object.fromEntries(data.teams.map((t) => [t.id, t]));
     const strongAt = (data.thresholds && data.thresholds.strong) || 7;
+    const M = (data.text && data.text.map) || { aria: "World map of influence", teamCountry: "Team country", attractiveness: "attractiveness", noInfluence: "No influence yet", looksTo: "Looks to", ownWay: "Finds its own way", targetAria: "Target {name}" };
     const pos = {};
     for (const c of data.countries) pos[c.id] = { x: fitX(c.x), y: fitY(c.y) };
     const radius = (id) => (teamIds.includes(id) ? 34 : 26);
 
     container.classList.add("spmap", `spmap-${mode}`);
     container.innerHTML = "";
-    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "World map of influence", preserveAspectRatio: "xMidYMid meet" }, container);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": M.aria, preserveAspectRatio: "xMidYMid meet" }, container);
     const defs = el("defs", {}, svg);
     patterns(defs, data.teams);
     const gLinks = el("g", { class: "links" }, svg);
@@ -120,7 +121,7 @@
       el("circle", { r: 9, class: "badge-bg" }, badgeG);
       const badge = el("text", { class: "badge-flag", "text-anchor": "middle", "dominant-baseline": "central" }, badgeG);
       const label = isTeam ? null : el("text", { x: 0, y: r + 11, class: "label", "text-anchor": "middle" }, g);
-      if (label) label.textContent = c.name;
+      if (label) label.textContent = c.mapName || c.name;
       if (isTeam) {
         fill.style.fill = TEAM[c.id].color;
         fill.style.fillOpacity = 1;
@@ -181,7 +182,7 @@
         t.g.classList.toggle("selectable", !!(sel && sel.has(id)));
         t.g.classList.toggle("dim", !!(sel && !sel.has(id) && !t.isTeam));
         t.g.classList.toggle("selected", chosen.has(id));
-        if (sel && sel.has(id)) { t.g.setAttribute("tabindex", "0"); t.g.setAttribute("role", "button"); t.g.setAttribute("aria-label", `Target ${t.country.name}`); }
+        if (sel && sel.has(id)) { t.g.setAttribute("tabindex", "0"); t.g.setAttribute("role", "button"); t.g.setAttribute("aria-label", M.targetAria.replace("{name}", t.country.name)); }
         else { t.g.removeAttribute("role"); t.g.removeAttribute("aria-label"); t.g.setAttribute("tabindex", "-1"); }
       }
       if (o.highlightTeam) for (const [id, t] of Object.entries(tiles)) t.g.classList.toggle("mine", id === o.highlightTeam);
@@ -224,17 +225,17 @@
       if (teamIds.includes(id)) {
         const t = TEAM[id];
         const st = current && current.teams && current.teams[id];
-        return `<strong>${c.flag} ${esc(c.name)}</strong><div class="muted">Team country${st ? ` · attractiveness ${st.attract}/10` : ""}</div>`;
+        return `<strong>${c.flag} ${esc(c.name)}</strong><div class="muted">${esc(M.teamCountry)}${st ? ` · ${esc(M.attractiveness)} ${st.attract}/10` : ""}</div>`;
       }
       const n = data.needs[c.need];
       let rows = "";
       if (current && current.influence && current.influence[id]) {
         const sc = Object.entries(current.influence[id]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-        rows = sc.map(([t, v]) => `<div class="tip-row"><span>${TEAM[t].flag} ${esc(TEAM[t].name)}</span><b>${v.toFixed(1)}</b></div>`).join("") || `<div class="muted">No influence yet</div>`;
+        rows = sc.map(([t, v]) => `<div class="tip-row"><span>${TEAM[t].flag} ${esc(TEAM[t].name)}</span><b>${v.toFixed(1)}</b></div>`).join("") || `<div class="muted">${esc(M.noInfluence)}</div>`;
       }
       const owner = current && current.owners && current.owners[id];
       return `<strong>${c.flag} ${esc(c.name)}</strong><div>${n.icon} ${esc(n.label)}</div>` +
-        (owner ? `<div class="muted">Looks to ${TEAM[owner].flag} ${esc(TEAM[owner].name)}</div>` : `<div class="muted">Finds its own way</div>`) + rows;
+        (owner ? `<div class="muted">${esc(M.looksTo)} ${TEAM[owner].flag} ${esc(TEAM[owner].name)}</div>` : `<div class="muted">${esc(M.ownWay)}</div>`) + rows;
     }
     function showTip(id, e, sticky) {
       if (mode === "mini" && !sticky) return;

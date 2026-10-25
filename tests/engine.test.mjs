@@ -169,7 +169,7 @@ test("a card not in the hand is ignored; a missing role plays nothing and gets a
   const out = resolve(g, { picks: { fra: { eco: { card: notInHand } } } });
   assert.equal(out.history[1].played.fra.eco, undefined);
   assert.ok(out.history[1].missing.fra.includes("eco"));
-  assert.ok(out.headlines.some((h) => h.text.includes("coffee break") && h.text.includes("France")) ||
+  assert.ok(out.headlines.some((h) => h.text.en.includes("coffee break") && h.text.en.includes("France")) ||
     out.history[1].headlines.length === 10, "coffee headline (unless crowded out)");
 });
 
@@ -183,7 +183,7 @@ test("strike cancels the targeted eco/ecolo card, +1 cohesion -1 eco, once per g
   // ChatGPT: eco+1 happy-1, no tech card played (cancelled) -> cohesion -1; strike: cohesion +1 eco -1
   assert.equal(out.teams.fra.gauges.eco, before.eco + 1 - 1);
   assert.equal(out.teams.fra.gauges.cohesion, before.cohesion - 1 + 1);
-  assert.ok(out.headlines.some((h) => h.text.includes("General strike")));
+  assert.ok(out.headlines.some((h) => h.text.en.includes("General strike")));
   // second strike later is ignored
   const g2 = { ...out, phase: "decide", turn: 2, resolvedTurn: 1 };
   const out2 = resolve(g2, { voice: { fra: { strike: "ecolo" } } });
@@ -200,7 +200,7 @@ test("veto cancels one card of the team (not the strike)", () => {
   assert.equal(out.history[1].played.bra.ecolo, undefined);
   assert.equal(out.history[1].vetoes.bra, "ecolo");
   assert.equal(out.history[1].strikes.bra, "eco", "the strike still happens");
-  assert.ok(out.headlines.some((h) => h.text.includes("vetoed 'Drill baby drill'")));
+  assert.ok(out.headlines.some((h) => h.text.en.includes("vetoed 'Drill baby drill'")));
   // vetoing an empty role does nothing
   const out2 = resolve(humanGame("v2"), { president: { bra: { veto: "eco" } } });
   assert.equal(out2.history[1].vetoes.bra, undefined);
@@ -229,7 +229,7 @@ test("cultural backlash at rejection >= 5: influence halved, owners recomputed, 
   assert.equal(out.teams.chn.rejection, 1);
   assert.deepEqual(out.history[1].backlash, ["chn"]);
   assert.equal(out.stats.backlashes.chn, 1);
-  assert.ok(out.headlines.some((h) => h.text.startsWith("🚫 Cultural backlash!") && h.text.includes("China")));
+  assert.ok(out.headlines.some((h) => h.text.en.startsWith("🚫 Cultural backlash!") && h.text.en.includes("China")));
   // kor: (20*0.9 + gain) / 2 vs usa 9*0.9 + gain -> USA now leads
   assert.ok(out.influence.kor.chn < 14);
   assert.equal(out.owners.kor, out.influence.kor.usa > out.influence.kor.chn + C.OWNER_GAP ? "usa" : out.owners.kor);
@@ -373,7 +373,7 @@ test("offers: accepted trade gives eco +1 to both; unanswered = refused", () => 
   assert.equal(out.teams.swe.gauges.eco, TEAMS[2].gauges.eco + 1 + 1);
   assert.equal(out.teams.usa.gauges.eco, TEAMS[0].gauges.eco + 1);
   assert.deepEqual(out.history[1].pacts, [{ from: "fra", to: "swe", type: "trade" }]);
-  assert.ok(out.headlines.some((h) => h.text.includes("France and 🇸🇪 Sweden sign a trade deal")));
+  assert.ok(out.headlines.some((h) => h.text.en.includes("France and 🇸🇪 Sweden sign a trade deal")));
   assert.equal(out.stats.deals.fra, 1);
 });
 
@@ -461,7 +461,11 @@ test("headlines: 5 to 10 per turn, never colonial words", () => {
       g = E.advance(g, 0);
       g = resolve(g, {});
       assert.ok(g.headlines.length >= 5 && g.headlines.length <= 10, `${g.headlines.length}`);
-      for (const h of g.headlines) assert.ok(!/conquer|captur|convert|rall/i.test(h.text), h.text);
+      for (const h of g.headlines) {
+        assert.ok(!/conquer|captur|convert|rall/i.test(h.text.en), h.text.en);
+        assert.ok(h.text.fr && h.text.en, "headline in both languages");
+        assert.ok(!/\{\w+\}/.test(h.text.fr + h.text.en), `unfilled placeholder: ${h.text.fr}`);
+      }
       g = E.advance(g, 0);
     }
   }

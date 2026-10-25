@@ -10,7 +10,10 @@
   };
   const KEY_STORE = "sp_host_key";
 
-  let D = null;            // static data
+  const I = window.SPI18n;
+  const LANG_STORE = "sp_lang_host";
+  let R = null;            // raw static data (all languages)
+  let D = null;            // static data in the current language
   let S = null;            // last state
   let map = null;
   let offset = 0;          // serverNow - Date.now()
@@ -25,6 +28,9 @@
   let qrFor = "";
 
   const T = () => D.text;
+  const H = () => D.text.host;
+  const tr = (v) => I.pick(v, D.lang);
+  const EV = () => (S && S.event ? D.events.find((e) => e.id === S.event.id) : null);
   const TEAM = () => Object.fromEntries(D.teams.map((t) => [t.id, t]));
   const fill = (tpl, v) => tpl.replace(/\{(\w+)\}/g, (_, k) => (v[k] ?? ""));
   const nowServer = () => Date.now() + offset;
@@ -38,7 +44,7 @@
   }
   let inFlight = false;
   async function hostAction(action, extra) {
-    if (!hostKey) { openControl("Enter the host key first."); return null; }
+    if (!hostKey) { openControl(H().enterKeyFirst); return null; }
     if (inFlight) return null; // ignore double presses while an action is running
     inFlight = true;
     try {
@@ -49,10 +55,10 @@
           onState(r.state);
           return r.state;
         } catch (e) {
-          if (e.status === 403) { msg("Wrong host key."); openControl(); return null; }
+          if (e.status === 403) { msg(H().wrongKey); openControl(); return null; }
           // network / server hiccup: host actions are idempotent, retry twice
-          if ((!e.status || e.status >= 500) && i < 2) { flash(`⏳ Retrying "${action}"…`); await new Promise((r) => setTimeout(r, 800 * (i + 1))); continue; }
-          msg(e.message); flash(`⚠️ ${e.message}`);
+          if ((!e.status || e.status >= 500) && i < 2) { flash(H().retrying); await new Promise((r) => setTimeout(r, 800 * (i + 1))); continue; }
+          const m = I.err(e.message, D); msg(m); flash(`⚠️ ${m}`);
           return null;
         }
       }
@@ -104,7 +110,7 @@
   function renderTop() {
     const t = T();
     $("turn").textContent = S.turn > 0 ? fill(t.turnLabel, { year: S.year, turn: S.turn, turns: S.turns }) : "2030";
-    $("phase").textContent = S.phase === "nogame" ? "Waiting" : (S.phase === "validate" && S.locked ? "Locked 🔒" : t.phases[S.phase] || S.phase);
+    $("phase").textContent = S.phase === "nogame" ? H().waiting : (S.phase === "validate" && S.locked ? H().locked : t.phases[S.phase] || S.phase);
     const alertOn = S.planetAlert && S.phase !== "lobby";
     $("planetAlert").hidden = !alertOn;
     if (alertOn) $("planetAlert").textContent = `${t.planetAlert} — ${S.globalPlanet}/50`;
@@ -142,7 +148,7 @@
   function fire(r) {
     let h = "";
     for (let i = 0; i < 5; i++) h += `<span class="${i < r ? "" : "off"}">🔥</span>`;
-    return `<span class="fire" aria-label="Backlash ${r} of 5">${h}</span>`;
+    return `<span class="fire" aria-label="${esc(T().backlash)} ${r}/5">${h}</span>`;
   }
 
   function renderTeams() {
@@ -152,12 +158,12 @@
     $("teams").innerHTML = D.teams.map((team) => {
       const st = S.teams[team.id];
       const n = st.players.length;
-      let who = esc(st.bot ? t.bot : `${n} player${n === 1 ? "" : "s"}`);
+      let who = esc(st.bot ? t.bot : n === 1 ? H().playersOne : I.fill(H().playersN, { n }));
       if (S.phase === "reveal" && revealDone && S.reveal && S.reveal.deltas[team.id]) {
         const d = S.reveal.deltas[team.id];
         const parts = [...D.gauges.map((k) => [D.gaugeInfo[k].icon, d[k]]), ["🔥", d.rejection]].filter(([, v]) => v)
           .map(([i, v]) => `<b class="${v > 0 ? "pos" : "neg"}">${i}${v > 0 ? "+" : "−"}${Math.abs(v)}</b>`);
-        who = `<span class="dl">${parts.join(" ") || "no change"}</span>`;
+        who = `<span class="dl">${parts.join(" ") || esc(H().noChange)}</span>`;
       }
       const showPills = (S.phase === "decide" || S.phase === "validate") && !st.bot;
       const pills = showPills
@@ -184,7 +190,7 @@
   function renderPlanet() {
     const v = S.globalPlanet ?? 24;
     const th = D.thresholds;
-    $("planetText").textContent = `${T().planetScore}: ${v}/50 · ⚠ ${th.warn} · ☠ ${th.lose}`;
+    $("planetText").textContent = `${T().planetScore}${D.lang === "fr" ? " :" : ":"} ${v}/50 · ⚠ ${th.warn} · ☠ ${th.lose}`;
     $("thermoFill").style.left = `calc(${(v / 50) * 100}% - 3px)`;
     const mw = $("markWarn"), ml = $("markLose");
     mw.style.left = `${(th.warn / 50) * 100}%`; mw.dataset.l = `⚠ ${th.warn}`;
@@ -197,8 +203,8 @@
     ov.hidden = false; ov.className = "overlay";
     ov.innerHTML = `<div class="keybox">
       <h1 class="display" style="font-size:6vh">${esc(T().title)}</h1>
-      <p class="muted" style="font-size:2.2vh">${hostKey ? "Opening the game…" : "Enter the host key to open the game."}</p>
-      ${hostKey ? "" : `<form id="ovKey"><input id="ovKeyInput" type="password" placeholder="Host key" aria-label="Host key"> <button class="btn primary">Open</button></form>`}
+      <p class="muted" style="font-size:2.2vh">${esc(hostKey ? H().opening : H().enterKey)}</p>
+      ${hostKey ? "" : `<form id="ovKey"><input id="ovKeyInput" type="password" placeholder="${esc(H().hostKey)}" aria-label="${esc(H().hostKey)}"> <button class="btn primary">${esc(H().open)}</button></form>`}
     </div>`;
     const f = $("ovKey");
     if (f) f.onsubmit = (e) => { e.preventDefault(); saveKey($("ovKeyInput").value); };
@@ -208,7 +214,7 @@
   function renderOverlay() {
     const ov = $("overlay");
     const t = T();
-    const key = `${S.phase}|${S.turn}|${S.phase === "lobby" ? JSON.stringify(S.teams) + S.totalPlayers : ""}|${revealDone}|${endSlide}|${S.gameOver}`;
+    const key = `${D.lang}|${S.phase}|${S.turn}|${S.phase === "lobby" ? JSON.stringify(S.teams) + S.totalPlayers : ""}|${revealDone}|${endSlide}|${S.gameOver}`;
     if (key === lastRendered && !ov.hidden === needsOverlay()) return;
     lastRendered = key;
     ov.className = "overlay";
@@ -220,13 +226,13 @@
           <div class="qr"><div id="qr"></div><div class="url">${esc(url.replace(/^https?:\/\//, ""))}</div></div>
           <div>
             <h2>${esc(t.join.title)} 📱</h2>
-            <div class="muted" style="font-size:2vh">Scan the QR code, pick a nickname and a country. No account needed.</div>
+            <div class="muted" style="font-size:2vh">${esc(H().scanQR)}</div>
             <div class="cols">${D.teams.map((team) => {
               const names = S.teams[team.id].players;
               return `<div class="col t-${team.id}"><h3><span>${team.flag} ${esc(team.name)}</span><span class="num">${names.length}</span></h3><ul>${names.map((n) => `<li>${esc(n)}</li>`).join("") || `<li class="muted">${esc(t.bot)}</li>`}</ul></div>`;
             }).join("")}</div>
-            <div class="total">${S.totalPlayers} player${S.totalPlayers === 1 ? "" : "s"} connected</div>
-            <div class="actions"><button class="btn" id="ovBalance">⚖️ Balance teams</button><button class="btn primary" id="ovStart">Start game ▶</button></div>
+            <div class="total">${esc(I.fill(H().totalConnected, { n: S.totalPlayers }))}</div>
+            <div class="actions"><button class="btn" id="ovBalance">${esc(H().balance)}</button><button class="btn primary" id="ovStart">${esc(H().startGame)}</button></div>
           </div></div>`;
         qrFor = "";
         drawQR(url);
@@ -236,14 +242,14 @@
       }
       case "roles":
         ov.hidden = false;
-        ov.innerHTML = `<div class="hero"><h1>${esc(t.tagline)}</h1><p>📱 Look at your phone: your role card is waiting.</p><p>Win the biggest zone of influence by 2050 — by making the world <em>want</em> your model. But if the planet falls under ${D.thresholds.lose}/50, everybody loses.</p></div>`;
+        ov.innerHTML = `<div class="hero"><h1>${esc(t.tagline)}</h1><p>${esc(H().lookPhone)}</p><p>${I.fill(H().rolesPitch, { n: D.thresholds.lose })}</p></div>`;
         break;
       case "event": {
         ov.hidden = false;
-        const e = S.event;
-        ov.innerHTML = `<article class="paper"><div class="mast"><b>${esc(t.newspaper)}</b><span>${S.year} · Turn ${S.turn}/${S.turns}</span></div>
+        const e = EV();
+        ov.innerHTML = `<article class="paper"><div class="mast"><b>${esc(t.newspaper)}</b><span>${S.year} · ${esc(I.fill(H().turnShort, { turn: S.turn, turns: S.turns }))}</span></div>
           <h1>${esc(e.title)}</h1><p class="sub">${esc(e.subtitle)}</p>
-          <div class="means"><b>${esc(t.whatItMeans)}</b>${esc(e.means)}<br><span style="opacity:.75">🌡️ Business as usual: every country also loses 🌍 ${D.thresholds.warming} this turn.</span></div></article>`;
+          <div class="means"><b>${esc(t.whatItMeans)}</b>${esc(e.means)}<br><span style="opacity:.75">${esc(I.fill(H().warmingTurn, { n: D.thresholds.warming }))}</span></div></article>`;
         break;
       }
       case "reveal":
@@ -275,19 +281,19 @@
     const e = S.end;
     if (!e) return "";
     const lost = S.gameOver;
-    const verdict = `<div class="verdict ${lost ? "lost" : "ok"}">${esc(lost ? t.gameOver : t.planetSurvived)}<small>🌍 Common planet: ${S.globalPlanet}/50</small></div>`;
+    const verdict = `<div class="verdict ${lost ? "lost" : "ok"}">${esc(lost ? t.gameOver : t.planetSurvived)}<small>${esc(I.fill(H().commonPlanet, { v: S.globalPlanet }))}</small></div>`;
     if (endSlide === 0) {
       const top = e.scores.slice(0, 3);
       const order = [top[1], top[0], top[2]].filter(Boolean);
-      const steps = order.map((s) => `<div class="step t-${s.team} p${s.rank}"><div class="rank">${["", "🥇", "🥈", "🥉"][s.rank]}</div><div class="f">${team[s.team].flag}</div><div class="n">${esc(team[s.team].name)}</div><div class="s">${s.zone} countries · ✨ ${s.attract}</div></div>`).join("");
+      const steps = order.map((s) => `<div class="step t-${s.team} p${s.rank}"><div class="rank">${["", "🥇", "🥈", "🥉"][s.rank]}</div><div class="f">${team[s.team].flag}</div><div class="n">${esc(team[s.team].name)}</div><div class="s">${esc(I.fill(H().countries, { n: s.zone }))} · ✨ ${s.attract}</div></div>`).join("");
       const others = e.scores.slice(3).map((s) => `${s.rank}. ${team[s.team].flag} ${esc(team[s.team].name)} (${s.zone})`).join(" · ");
-      return `<div class="end"><h2>2050 — ${esc(t.phases.end)}</h2>${verdict}<div class="podium ${lost ? "grey" : ""}">${steps}</div><div class="others">${others}</div><div class="hint">→ awards</div></div>`;
+      return `<div class="end"><h2>2050 — ${esc(t.phases.end)}</h2>${verdict}<div class="podium ${lost ? "grey" : ""}">${steps}</div><div class="others">${others}</div><div class="hint">${esc(H().toAwards)}</div></div>`;
     }
     if (endSlide === 1) {
-      const cards = e.awards.map((a, i) => `<div class="award t-${a.team}" style="animation-delay:${i * 0.25}s"><div class="t">${esc(t.awards[a.key])}</div><div class="w">${team[a.team].flag} ${esc(team[a.team].name)}</div><div class="v">${esc(a.value)}</div></div>`).join("");
-      return `<div class="end"><h2>🏆 Awards</h2><div class="awards">${cards}</div><div class="hint">→ debate</div></div>`;
+      const cards = e.awards.map((a, i) => `<div class="award t-${a.team}" style="animation-delay:${i * 0.25}s"><div class="t">${esc(t.awards[a.key])}</div><div class="w">${team[a.team].flag} ${esc(team[a.team].name)}</div><div class="v">${esc(a.card ? `${D.cards.find((c) => c.id === a.card).emoji} ${D.cards.find((c) => c.id === a.card).name}` : a.value)}</div></div>`).join("");
+      return `<div class="end"><h2>${esc(H().awardsTitle)}</h2><div class="awards">${cards}</div><div class="hint">${esc(H().toDebate)}</div></div>`;
     }
-    return `<div class="end"><div class="muted" style="font-size:2.4vh">Time to debate 🎙️</div><div class="debate">${esc(t.debate)}</div>${verdict}</div>`;
+    return `<div class="end"><div class="muted" style="font-size:2.4vh">${esc(H().timeToDebate)}</div><div class="debate">${esc(t.debate)}</div>${verdict}</div>`;
   }
 
   function renderNote() { $("mapNote").hidden = true; }
@@ -295,11 +301,12 @@
   // ------------------------------------------------------------------ ticker
   function renderTicker() {
     let list;
-    if ((S.phase === "reveal" || S.phase === "end") && S.headlines.length) list = S.headlines.map((h) => h.text);
+    const e = EV();
+    if ((S.phase === "reveal" || S.phase === "end") && S.headlines.length) list = S.headlines.map((h) => tr(h.text));
     else if (S.phase === "lobby" || S.phase === "nogame") list = [T().tagline];
-    else if (S.phase === "validate") list = [S.locked ? "🔒 Choices are locked. Ready to reveal!" : "👑 Presidents are validating: vetoes, super-powers and strikes happen now…", `📰 ${S.event.title}`];
-    else if (S.phase === "decide" && S.event) list = [`📰 ${S.event.title}`, `💡 ${S.event.means}`];
-    else if (S.event) list = [`📰 ${S.event.title} — ${S.event.subtitle}`];
+    else if (S.phase === "validate") list = [S.locked ? H().tickLocked : H().tickValidating, e ? `📰 ${e.title}` : ""];
+    else if (S.phase === "decide" && e) list = [`📰 ${e.title}`, `💡 ${e.means}`];
+    else if (e) list = [`📰 ${e.title} — ${e.subtitle}`];
     else list = [T().tagline];
     const k = list.join("|");
     if (k === tickerList.join("|")) return;
@@ -338,30 +345,31 @@
     $("btnClose").disabled = !(s.phase === "decide" || (s.phase === "validate" && !s.locked));
     if (document.activeElement !== $("timerRange")) { $("timerRange").value = s.decideSeconds || 150; $("timerOut").textContent = `${s.decideSeconds || 150} s`; }
     const list = $("playerList");
-    if (!s.host) { list.innerHTML = hostKey ? "" : `<span class="muted small">Save the key to see players.</span>`; return; }
+    if (!s.host) { list.innerHTML = hostKey ? "" : `<span class="muted small">${esc(H().saveKeyPlayers)}</span>`; return; }
     const teamOpts = (sel) => D.teams.map((t) => `<option value="${t.id}"${t.id === sel ? " selected" : ""}>${t.flag} ${esc(t.name)}</option>`).join("");
     const html = s.host.players.map((p) => s.phase === "lobby"
-      ? `<div class="p"><span>${esc(p.name)}</span><select data-pid="${esc(p.pid)}" aria-label="Team of ${esc(p.name)}">${teamOpts(p.team)}</select></div>`
+      ? `<div class="p"><span>${esc(p.name)}</span><select data-pid="${esc(p.pid)}" aria-label="${esc(I.fill(H().teamOf, { name: p.name }))}">${teamOpts(p.team)}</select></div>`
       : `<div class="p"><span>${esc(p.name)}${p.late ? " ⏱" : ""}</span><span class="muted">${TEAM()[p.team].flag} ${p.roles.map((r) => D.roles.find((x) => x.id === r).emoji).join("")}</span></div>`).join("");
     if (list.dataset.k !== html) {
       if (list.contains(document.activeElement) && document.activeElement.tagName === "SELECT") return;
       list.dataset.k = html;
-      list.innerHTML = html || `<span class="muted small">No players yet.</span>`;
+      list.innerHTML = html || `<span class="muted small">${esc(H().noPlayers)}</span>`;
       list.querySelectorAll("select").forEach((sel) => { sel.onchange = () => hostAction("movePlayer", { pid: sel.dataset.pid, team: sel.value }); });
     }
   }
   function nextLabel() {
-    if (!S) return "Next ▶";
+    const h = H();
+    if (!S) return h.next;
     switch (S.phase) {
-      case "nogame": return "Open game ▶";
-      case "lobby": return "Start game ▶";
-      case "roles": return "First event ▶";
-      case "event": return "Open decisions ▶";
-      case "decide": return "Close decisions ⏹";
-      case "validate": return "Reveal ▶";
-      case "reveal": return S.turn >= S.turns || S.gameOver ? "Final verdict ▶" : "Next turn ▶";
-      case "end": return endSlide < 2 ? "Next slide ▶" : "—";
-      default: return "Next ▶";
+      case "nogame": return h.openGame;
+      case "lobby": return h.startGame;
+      case "roles": return h.firstEvent;
+      case "event": return h.openDecisions;
+      case "decide": return h.closeDecisions;
+      case "validate": return h.reveal;
+      case "reveal": return S.turn >= S.turns || S.gameOver ? h.finalVerdict : h.nextTurn;
+      case "end": return endSlide < 2 ? h.nextSlide : "—";
+      default: return h.next;
     }
   }
   function next() {
@@ -384,8 +392,25 @@
       resetArmed = 0;
       animatedTurn = 0; sessionStorage.setItem("sp_animated", "0"); endSlide = 0;
       hostAction("reset");
-      msg("Game reset ✔");
-    } else { resetArmed = t; msg("Press again to reset the game"); }
+      msg(H().resetDone);
+    } else { resetArmed = t; msg(H().pressAgain); }
+  }
+
+  // Language: French by default, switch in the control panel or with the L key.
+  function setLang(lang) {
+    I.remember(LANG_STORE, lang);
+    D = I.localize(R, lang);
+    applyLang();
+    lastRendered = ""; tickerList = []; qrFor = "";
+    render();
+  }
+  function applyLang() {
+    document.documentElement.lang = D.lang;
+    $("langSelect").value = D.lang;
+    document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = H()[el.dataset.i18n]; });
+    document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = H()[el.dataset.i18nPh]; });
+    map = SPMap.create($("map"), D, { mode: "host" });
+    if (S && !animating) map.update(S, {});
   }
 
   function bind() {
@@ -396,21 +421,24 @@
     $("timerRange").oninput = () => { $("timerOut").textContent = `${$("timerRange").value} s`; };
     $("btnTimer").onclick = () => hostAction("setTimer", { seconds: Number($("timerRange").value) });
     $("btnReset").ondblclick = () => { resetArmed = Date.now(); reset(); };
-    $("btnReset").onclick = () => msg("Double-click to reset (or press R twice)");
+    $("btnReset").onclick = () => msg(H().dblClick);
+    $("langSelect").onchange = () => setLang($("langSelect").value);
     document.addEventListener("keydown", (e) => {
       if (e.target.closest("input, select, textarea")) return;
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); next(); }
       else if (e.key === "r" || e.key === "R") reset();
+      else if ((e.key === "l" || e.key === "L") && D) setLang(D.lang === "fr" ? "en" : "fr");
     });
     window.addEventListener("resize", () => { qrFor = ""; if (S && S.phase === "lobby") { lastRendered = ""; render(); } });
   }
 
   async function boot() {
     bind();
-    for (let i = 0; !D; i++) {
-      try { D = await getJSON("/api/state?static=1"); } catch { await new Promise((r) => setTimeout(r, Math.min(5000, 800 * (i + 1)))); }
+    for (let i = 0; !R; i++) {
+      try { R = await getJSON("/api/state?static=1"); } catch { await new Promise((r) => setTimeout(r, Math.min(5000, 800 * (i + 1)))); }
     }
-    map = SPMap.create($("map"), D, { mode: "host" });
+    D = I.localize(R, I.current(LANG_STORE, R));
+    applyLang();
     if (!hostKey) openControl();
     poll();
     tickTimer();

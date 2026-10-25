@@ -11,6 +11,13 @@ Stack : HTML/CSS/JS vanilla sans build (`public/`), Netlify Functions v2 (`netli
 
 ---
 
+## Langues
+
+Le jeu est en **français par défaut**, sur l'écran hôte comme chez les joueurs. L'anglais reste disponible :
+- **Joueurs** : boutons « 🇫🇷 Français / 🇬🇧 English » en bas de chaque écran. Le choix est mémorisé sur le téléphone (clé `sp_lang`), et chaque joueur peut avoir sa propre langue dans la même partie.
+- **Hôte** : sélecteur *Langue* dans le panneau ⚙️ Animateur, ou touche **L** (clé `sp_lang_host`).
+- Les gros titres sont générés côté serveur dans les deux langues, chaque écran affiche la sienne.
+
 ## 1. Mise en ligne (GitHub + Netlify)
 
 1. **Créer le dépôt GitHub** (vide, privé ou public) puis, dans ce dossier :
@@ -76,7 +83,9 @@ Tout le contenu est dans **`netlify/lib/data.mjs`** (données pures) :
 - `CARDS` : une carte = `{ id, role, name, emoji, flavor, fx: { eco, planet, happy, cohesion }, tags, influence, global, rejection, special }`. Ajouter une ligne `card("eco", "eco_xxx", "Nom", "🧪", "Phrase fun", { fx: { eco: 1 }, tags: ["tech"] })`.
 - `EVENTS` : titre de la une, sous-titre et ligne *What it means for you*. Les **effets** des événements sont codés dans `eventGaugeDeltas` et `eventMultiplier` (`netlify/lib/engine.mjs`).
 - `TEAMS` (jauges de départ, couleurs, super-pouvoirs), `COUNTRIES` (besoins, positions), `RAW_NEIGHBORS` (liaisons de la carte).
-- `TEXT` : **tous les textes de l'interface** (en anglais). Pour passer en français, il suffit de traduire cet objet, ainsi que les noms et phrases des cartes et des événements.
+- `TEXT.fr` / `TEXT.en` : **tous les textes de l'interface**, dans les deux langues (mêmes clés, ce que vérifie un test).
+- `CONTENT_FR` : la version française des cartes, événements, rôles, pays, besoins, jauges et accords (le contenu anglais est dans les tableaux ci-dessus). `ERRORS_FR` traduit les messages d'erreur du serveur.
+- Quand vous ajoutez une carte ou un événement, ajoutez aussi sa ligne dans `CONTENT_FR`. Sinon `npm test` échoue, exprès.
 
 Après une modification : `npm test` (vérifie la validité des données) puis `npm run simulate` (vérifie l'équilibre), commit, push : Netlify redéploie tout seul.
 
@@ -89,7 +98,7 @@ npm install
 npm test
 ```
 
-- `npm test` : 77 tests `node:test`, sans dépendance de test (données, règles du moteur, rôles pour n = 0 à 9, API avec un Blobs simulé en mémoire).
+- `npm test` : 82 tests `node:test`, sans dépendance de test (données, règles du moteur, rôles pour n = 0 à 9, API avec un Blobs simulé en mémoire).
 - `npm run simulate` : 1000 parties de bots, contrôle des objectifs d'équilibrage du §11.
 - **Local** : `npm i -g netlify-cli`, puis lancer `netlify dev` avec une clé de test locale dans `HOST_KEY` (par exemple `HOST_KEY=une-cle-de-test netlify dev --offline`) et ouvrir http://localhost:8888/host.html.
 - **Bout en bout** (Playwright, utilise le Chromium déjà en cache, sans `playwright install`) : `HOST_KEY=<même clé> node scripts/e2e.mjs`. Il joue 1 hôte + 12 joueurs sur une partie complète et enregistre les captures de chaque phase dans `screenshots/` (hôte 1920×1080, joueurs 390×844 et 1366×768). Il signale les débordements, les boutons de moins de 44 px et le scroll horizontal. Le paquet `playwright` est chargé localement ou depuis l'installation globale (`npm i -g --ignore-scripts playwright@1.58.2`, la version qui correspond au Chromium 1208 en cache). Les timers sont accélérés avec *Close now* (même chemin de code que la fin du timer, dont le minimum est 60 s).
@@ -103,7 +112,7 @@ npm test
 netlify.toml · package.json · README.md
 netlify/lib/      data.mjs (données) · engine.mjs (règles, fonctions pures) · rng.mjs · store.mjs (Blobs) · view.mjs (états public/privé)
 netlify/functions state.mjs (GET /api/state) · join.mjs · pick.mjs · team.mjs · host.mjs
-public/           index.html + player.js (joueur) · host.html + host.js (hôte) · map.js (carte SVG partagée) · app.css
+public/           index.html + player.js (joueur) · host.html + host.js (hôte) · map.js (carte SVG partagée) · i18n.js (langues) · app.css
 scripts/          simulate.mjs · e2e.mjs · load.mjs
 tests/            data / engine / roles / api (.test.mjs) · memstore.mjs (Blobs en mémoire)
 ```
@@ -164,4 +173,5 @@ Avec les valeurs de la spec, le Brésil gagnait 70 % des parties et la planète 
 - Les coordonnées des pays sont étirées pour remplir le `viewBox` (sans chevauchement). Les deux routes maritimes (USA–Japon, Chili–Australie) sont dessinées comme des routes qui sortent par les bords de la carte, avec le drapeau de destination.
 - Au reveal, l'hôte affiche les deltas de jauges dans chaque panneau d'équipe plutôt que dans un encadré, pour ne pas masquer la carte.
 - Pour le ciblage Culture sur téléphone, la mini-carte zoome sur les pays éligibles et une liste de boutons (≥ 44 px) la complète.
-- Fichiers ajoutés à l'arborescence de la spec : `tests/data.test.mjs`, `tests/memstore.mjs`, `scripts/e2e.mjs`, `scripts/load.mjs`, `public/map-demo.html`, `.gitignore`.
+- Langues : français par défaut (la spec prévoyait l'interface en anglais avec un objet `TEXT` prêt à traduire). Le module partagé `public/i18n.js` construit les données dans la langue choisie. Deux noms de pays sont abrégés sur la carte en français (« Roy.-Uni », « Corée S. ») pour ne pas chevaucher les tuiles voisines.
+- Fichiers ajoutés à l'arborescence de la spec : `public/i18n.js`, `tests/data.test.mjs`, `tests/memstore.mjs`, `scripts/e2e.mjs`, `scripts/load.mjs`, `public/map-demo.html`, `.gitignore`.

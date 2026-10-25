@@ -113,6 +113,8 @@ try {
     await p.page.click('#joinForm button[type="submit"]');
     await sleep(150);
   }
+  // French is the default; one laptop player switches to English
+  await players[11].page.click('[data-lang="en"]').catch(() => issues.push("language switch button missing"));
   await Promise.all(players.map((p) => p.page.waitForSelector(".mates", { timeout: 30000 }).catch(async (e) => { await p.page.screenshot({ path: `${OUT}debug-join-${p.i}.png` }); throw e; })));
   await sleep(2000);
   await shot(hp, "host-01-lobby");

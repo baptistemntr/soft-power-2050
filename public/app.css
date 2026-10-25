@@ -377,3 +377,10 @@ table.world tr.me { background: color-mix(in srgb, var(--accent) 10%, transparen
 }
 .choice.empty { display: block; }
 .tabpanel h3 { margin: 20px 0 8px; font-size: 17px; }
+
+/* language switch (player) */
+.langbar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 22px 0 6px; }
+.langbar .chipbtn { font-size: 14px; }
+.tpanel .tname { white-space: nowrap; overflow: hidden; }
+.tpanel .tname small { overflow: hidden; text-overflow: ellipsis; }
+.tpanel .dl { font-size: 1.25vh; letter-spacing: 0; }

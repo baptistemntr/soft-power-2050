@@ -74,7 +74,8 @@ test("static data endpoint", async () => {
   const res = await stateFn(new Request("http://localhost/api/state?static=1"));
   const d = await res.json();
   assert.equal(d.countries.length, 28);
-  assert.ok(d.cards.length > 30 && d.text.title);
+  assert.ok(d.cards.length > 30 && d.text.en.title && d.text.fr.title);
+  assert.equal(d.defaultLang, "fr");
 });
 
 // ---------------------------------------------------------------- join

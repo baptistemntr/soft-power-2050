@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   COUNTRIES, COUNTRY, NEIGHBORS, TEAMS, TEAM_IDS, CARDS, CARD_ROLES, DECKS, EVENTS, EVENT,
   NEEDS, GAUGES, ROLES, TEXT, FIRST_EVENT, LAST_EVENT, YEARS, SEA_ROUTES,
+  LANGS, DEFAULT_LANG, CONTENT_FR, ERRORS_FR, DIPLO_TYPES,
 } from "../netlify/lib/data.mjs";
 
 test("28 countries, 5 teams, unique ids", () => {
@@ -78,8 +79,64 @@ test("roles: 6 roles with texts", () => {
 });
 
 test("no colonial vocabulary in any UI text", () => {
-  const blob = JSON.stringify({ TEXT, EVENTS, CARDS, ROLES, TEAMS }).toLowerCase();
+  const blob = JSON.stringify({ TEXT: TEXT.en, EVENTS, CARDS, ROLES, TEAMS }).toLowerCase();
   for (const w of ["conquer", "conquest", "capture", "convert", "rally", "colon", "invade", "annex"]) {
+    assert.ok(!blob.includes(w), `forbidden word: ${w}`);
+  }
+});
+
+// ---------------------------------------------------------------- languages
+const shape = (o) => (o && typeof o === "object" ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, shape(o[k])])) : typeof o);
+const placeholders = (s) => (s.match(/\{\w+\}/g) || []).sort().join(",");
+function walk(a, b, path, fn) {
+  if (typeof a === "string") return fn(a, b, path);
+  for (const k of Object.keys(a)) walk(a[k], b[k], `${path}.${k}`, fn);
+}
+
+test("French is the default language and both languages exist", () => {
+  assert.equal(DEFAULT_LANG, "fr");
+  assert.deepEqual([...LANGS].sort(), ["en", "fr"]);
+});
+
+test("TEXT.fr has the same keys as TEXT.en and only known placeholders", () => {
+  assert.deepEqual(shape(TEXT.fr), shape(TEXT.en));
+  walk(TEXT.en, TEXT.fr, "TEXT", (en, fr, path) => {
+    assert.ok(fr && fr.trim(), `${path} is empty in French`);
+    const known = [...placeholders(en).split(","), ...(path.includes("headlines") ? ["{team}", "{tflag}", "{adj}"] : [])]; // team vars are always provided
+    for (const ph of placeholders(fr).split(",").filter(Boolean)) assert.ok(known.includes(ph), `${path}: unknown ${ph}`);
+  });
+});
+
+test("every piece of game content has a French version", () => {
+  for (const c of CARDS) assert.ok(CONTENT_FR.cards[c.id] && CONTENT_FR.cards[c.id][0] && CONTENT_FR.cards[c.id][1], c.id);
+  for (const e of EVENTS) {
+    const fr = CONTENT_FR.events[e.id];
+    assert.ok(fr && fr.length === 3 && fr.every(Boolean), e.id);
+    assert.equal(placeholders(fr[2]), placeholders(e.means), `${e.id} placeholders`);
+  }
+  for (const r of ROLES) assert.ok(CONTENT_FR.roles[r.id].name && CONTENT_FR.roles[r.id].desc && CONTENT_FR.roles[r.id].tip, r.id);
+  for (const c of COUNTRIES) assert.ok(CONTENT_FR.countries[c.id], c.id);
+  for (const t of TEAMS) assert.ok(CONTENT_FR.teams[t.id].name && CONTENT_FR.teams[t.id].power.name && CONTENT_FR.teams[t.id].power.desc, t.id);
+  for (const n of Object.keys(NEEDS)) assert.ok(CONTENT_FR.needs[n], n);
+  for (const g of GAUGES) assert.ok(CONTENT_FR.gauges[g].label && CONTENT_FR.gauges[g].short, g);
+  for (const d of Object.keys(DIPLO_TYPES)) assert.ok(CONTENT_FR.diplo[d].name && CONTENT_FR.diplo[d].desc, d);
+});
+
+test("every server error message has a French translation", async () => {
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const dir = new URL("../netlify/functions/", import.meta.url);
+  const msgs = new Set();
+  for (const f of readdirSync(dir)) {
+    const src = readFileSync(new URL(f, dir), "utf8");
+    for (const m of src.matchAll(/fail\(\d+, "([^"]+)"\)/g)) msgs.add(m[1]);
+    for (const m of src.matchAll(/\? "([^"]+)" : "([^"]+)"/g)) { msgs.add(m[1]); msgs.add(m[2]); }
+  }
+  for (const m of msgs) if (!["GET only", "POST only"].includes(m)) assert.ok(ERRORS_FR[m], `missing French error: ${m}`);
+});
+
+test("no colonial vocabulary in French texts either", () => {
+  const blob = JSON.stringify({ TEXT: TEXT.fr, CONTENT_FR }).toLowerCase();
+  for (const w of ["conquér", "conquête", "conquis", "captur", "convertir", "converti", "rallier", "colonis", "colonie", "envahi", "annex"]) {
     assert.ok(!blob.includes(w), `forbidden word: ${w}`);
   }
 });

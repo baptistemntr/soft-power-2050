@@ -1,7 +1,7 @@
 // SOFT POWER 2050 — rules engine. PURE FUNCTIONS ONLY: no I/O, no Date.now(), no Math.random().
 import {
   GAUGES, GAUGE_INFO, NEEDS, TEAMS, TEAM_IDS, COUNTRY, COUNTRIES, FREE_COUNTRIES, NEIGHBORS,
-  ROLE_IDS, CARD_ROLES, CARD, DECKS, EVENTS, FIRST_EVENT, LAST_EVENT, YEARS, TURNS, TEXT, DIPLO_TYPES,
+  ROLE_IDS, CARD_ROLES, CARD, DECKS, EVENTS, FIRST_EVENT, LAST_EVENT, YEARS, TURNS, TEXT, DIPLO_TYPES, LANGS, CONTENT_FR,
 } from "./data.mjs";
 import { rng, shuffle } from "./rng.mjs";
 
@@ -408,7 +408,21 @@ export function botAcceptsOffer(game, team, type) {
 // ---------------------------------------------------------------------------
 // Turn resolution (§8)
 // ---------------------------------------------------------------------------
-const teamLabel = (t) => ({ tflag: TEAM[t].flag, team: TEAM[t].name, adj: TEAM[t].adj });
+// Localised names used in headlines (headlines are generated in every language).
+const LOC = {
+  en: {
+    team: (t) => TEAM[t], power: (t) => TEAM[t].power.name, country: (c) => COUNTRY[c].name, card: (id) => CARD[id].name,
+    need: (n) => NEEDS[n].label, gauge: (k) => GAUGE_INFO[k].short, deal: (k) => DIPLO_TYPES[k].name,
+  },
+  fr: {
+    team: (t) => CONTENT_FR.teams[t], power: (t) => CONTENT_FR.teams[t].power.name, country: (c) => CONTENT_FR.countries[c],
+    card: (id) => CONTENT_FR.cards[id][0], need: (n) => CONTENT_FR.needs[n], gauge: (k) => CONTENT_FR.gauges[k].short,
+    deal: (k) => CONTENT_FR.diplo[k].name,
+  },
+};
+const teamLabel = (L, t) => ({ tflag: TEAM[t].flag, team: L.team(t).name, adj: L.team(t).adj });
+// headline text in every language: { en: "...", fr: "..." }
+const hl = (key, vars = () => ({})) => Object.fromEntries(LANGS.map((lang) => [lang, fill(TEXT[lang].headlines[key], vars(LOC[lang], lang))]));
 
 // Decide which offers are accepted. Returns [{ from, to, type }].
 export function acceptedOffers(game, offers = [], replies = {}) {
@@ -491,13 +505,14 @@ export function resolveTurn(game, inputs = {}) {
       strikes[t] = s;
       const cancelled = played[t][s];
       delete played[t][s];
-      const name = cancelled ? lowerName(CARD[cancelled].name) : (s === "eco" ? "economy plan" : "ecology plan");
-      add(9, fill(TEXT.headlines.strike, { ...teamLabel(t), card: name }), [t]);
+      const plan = { en: { eco: "economy plan", ecolo: "ecology plan" }, fr: { eco: "plan économie", ecolo: "plan écologie" } };
+      add(9, hl("strike", (L, lang) => ({ ...teamLabel(L, t), card: cancelled ? lowerName(L.card(cancelled)) : plan[lang][s] })), [t]);
     }
     const v = choice[t].president && choice[t].president.veto;
     if (v && CARD_ROLES.includes(v) && played[t][v]) {
       vetoes[t] = v;
-      add(9, fill(TEXT.headlines.veto, { ...teamLabel(t), card: CARD[played[t][v]].name }), [t]);
+      const vetoedCard = played[t][v];
+      add(9, hl("veto", (L) => ({ ...teamLabel(L, t), card: L.card(vetoedCard) })), [t]);
       delete played[t][v];
       if (v === "culture") delete targets[t];
     }
@@ -524,7 +539,7 @@ export function resolveTurn(game, inputs = {}) {
       if (card.special === "climate_summit") {
         for (const u of TEAM_IDS) g.teams[u].gauges.planet += 1;
         g.teams[t].gauges.eco -= 1;
-        add(5, fill(TEXT.headlines.summitCard, teamLabel(t)), [t]);
+        add(5, hl("summitCard", (L) => teamLabel(L, t)), [t]);
       }
     }
     if (strikes[t]) { g.teams[t].gauges.cohesion += 1; g.teams[t].gauges.eco -= 1; }
@@ -551,10 +566,10 @@ export function resolveTurn(game, inputs = {}) {
       else for (const t of pair) g.teams[t].gauges.happy += 1;
     }
     for (const t of pair) g.stats.deals[t] += 1;
-    add(7, fill(TEXT.headlines.pact, {
-      aflag: TEAM[p.from].flag, a: TEAM[p.from].name, bflag: TEAM[p.to].flag, b: TEAM[p.to].name,
-      deal: DIPLO_TYPES[p.type].name.toLowerCase(),
-    }), pair);
+    add(7, hl("pact", (L) => ({
+      aflag: TEAM[p.from].flag, a: L.team(p.from).name, bflag: TEAM[p.to].flag, b: L.team(p.to).name,
+      deal: L.deal(p.type).toLowerCase(),
+    })), pair);
   }
 
   // 9. Super-powers (gauge / rejection part). Targets validated now.
@@ -574,7 +589,7 @@ export function resolveTurn(game, inputs = {}) {
     if (p.id === "lagom") { g.teams[t].rejection = 0; g.teams[t].gauges.happy += 1; }
     if (p.id === "silkroads") { g.teams[t].rejection = clamp(g.teams[t].rejection + 1); g.stats.rejGained[t] += 1; }
     if (p.id === "carnaval") g.teams[t].gauges.happy += 1;
-    add(8, fill(TEXT.headlines.power, { ...teamLabel(t), emoji: p.emoji, power: p.name }), [t]);
+    add(8, hl("power", (L) => ({ ...teamLabel(L, t), emoji: p.emoji, power: L.power(t) })), [t]);
   }
 
   // 10. Clamp
@@ -646,7 +661,7 @@ export function resolveTurn(game, inputs = {}) {
       g.teams[t].rejection = 1;
       g.stats.backlashes[t] += 1;
       const lastForcing = playedList[t].map((id) => CARD[id]).find((c) => c.rejection > 0);
-      add(10, fill(TEXT.headlines.backlash, { ...teamLabel(t), idea: lastForcing ? lowerName(lastForcing.name) : TEXT.ideaBacklash }), [t]);
+      add(10, hl("backlash", (L, lang) => ({ ...teamLabel(L, t), idea: lastForcing ? lowerName(L.card(lastForcing.id)) : TEXT[lang].ideaBacklash })), [t]);
     }
   }
   if (backlash.length) g.owners = computeOwners(g.influence, startOwners);
@@ -667,50 +682,49 @@ export function resolveTurn(game, inputs = {}) {
     if (from !== to) changes.push({ country: c.id, from, to, strong });
     else if (to && strong !== prevStrong) changes.push({ country: c.id, from, to, strong, tier: true });
   }
-  const ideaFor = (c, t) => {
+  const ideaFor = (c, t, L, lang) => {
     const h = help[`${c}:${t}`];
     if (h) {
       const best = Object.entries(h).sort((a, b) => b[1] - a[1])[0];
-      if (best) return lowerName(CARD[best[0]].name);
+      if (best) return lowerName(L.card(best[0]));
     }
-    return fill(TEXT.ideaFallback, { need: NEEDS[COUNTRY[c].need].label.toLowerCase() });
+    return fill(TEXT[lang].ideaFallback, { need: L.need(COUNTRY[c].need).toLowerCase() });
   };
   for (const ch of changes) {
     if (ch.tier) continue;
-    const cty = COUNTRY[ch.country];
-    const base = { cflag: cty.flag, country: cty.name };
+    const base = (L) => ({ cflag: COUNTRY[ch.country].flag, country: L.country(ch.country) });
     if (ch.to && ch.from) {
-      add(6, fill(TEXT.headlines.switches, { ...base, tflag: TEAM[ch.to].flag, team: TEAM[ch.to].name, oflag: TEAM[ch.from].flag, other: TEAM[ch.from].name }), [ch.to, ch.from]);
+      add(6, hl("switches", (L) => ({ ...base(L), tflag: TEAM[ch.to].flag, team: L.team(ch.to).name, oflag: TEAM[ch.from].flag, other: L.team(ch.from).name })), [ch.to, ch.from]);
     } else if (ch.to) {
-      add(4, fill(TEXT.headlines.joins, { ...base, tflag: TEAM[ch.to].flag, team: TEAM[ch.to].name, idea: ideaFor(ch.country, ch.to) }), [ch.to]);
+      add(4, hl("joins", (L, lang) => ({ ...base(L), tflag: TEAM[ch.to].flag, team: L.team(ch.to).name, idea: ideaFor(ch.country, ch.to, L, lang) })), [ch.to]);
     } else {
-      add(2, fill(TEXT.headlines.leaves, { ...base, oflag: TEAM[ch.from].flag, other: TEAM[ch.from].name }), [ch.from]);
+      add(2, hl("leaves", (L) => ({ ...base(L), oflag: TEAM[ch.from].flag, other: L.team(ch.from).name })), [ch.from]);
     }
   }
   for (const t of TEAM_IDS) {
     if (g.teams[t].bot) continue;
-    for (const role of missing[t]) add(3, fill(TEXT.headlines.coffee, { ...teamLabel(t), office: TEXT.offices[role] }), [t]);
+    for (const role of missing[t]) add(3, hl("coffee", (L, lang) => ({ ...teamLabel(L, t), office: TEXT[lang].offices[role] })), [t]);
     for (const k of GAUGES) {
       const v = g.teams[t].gauges[k];
-      if (v <= 1 && v < startGauges[t][k]) add(3, fill(TEXT.headlines.low, { ...teamLabel(t), icon: GAUGE_INFO[k].icon, gauge: GAUGE_INFO[k].short }), [t]);
+      if (v <= 1 && v < startGauges[t][k]) add(3, hl("low", (L) => ({ ...teamLabel(L, t), icon: GAUGE_INFO[k].icon, gauge: L.gauge(k) })), [t]);
     }
   }
   for (const t of TEAM_IDS) {
     for (const k of GAUGES) {
       const v = g.teams[t].gauges[k];
-      if (v >= 10 && startGauges[t][k] < 10) add(1, fill(TEXT.headlines.high, { ...teamLabel(t), icon: GAUGE_INFO[k].icon, gauge: GAUGE_INFO[k].short.toLowerCase() }), [t]);
+      if (v >= 10 && startGauges[t][k] < 10) add(1, hl("high", (L, lang) => ({ ...teamLabel(L, t), icon: GAUGE_INFO[k].icon, gauge: lang === "en" ? L.gauge(k).toLowerCase() : L.gauge(k) })), [t]);
     }
   }
-  add(g.globalPlanet < C.PLANET_WARN ? 8 : 1, fill(g.globalPlanet < C.PLANET_WARN ? TEXT.headlines.planet : TEXT.headlines.planetOk, { score: g.globalPlanet }), []);
+  add(g.globalPlanet < C.PLANET_WARN ? 8 : 1, hl(g.globalPlanet < C.PLANET_WARN ? "planet" : "planetOk", () => ({ score: g.globalPlanet })), []);
   const top = TEAM_IDS.slice().sort((a, b) => att[b] - att[a])[0];
-  add(1, fill(TEXT.headlines.attractive, { ...teamLabel(top), year }), [top]);
-  if (!changes.some((c) => !c.tier)) add(1, TEXT.headlines.quiet, []);
+  add(1, hl("attractive", (L) => ({ ...teamLabel(L, top), year })), [top]);
+  if (!changes.some((c) => !c.tier)) add(1, hl("quiet"), []);
   // Pad to at least 5 with a short status of each team
   const byAtt = TEAM_IDS.slice().sort((a, b) => att[b] - att[a]);
   for (const t of byAtt) {
     if (H.length >= 5) break;
     const zone = FREE_COUNTRIES.filter((c) => g.owners[c] === t).length;
-    add(0, fill(TEXT.headlines.mood, { ...teamLabel(t), att: att[t], zone }), [t]);
+    add(0, hl("mood", (L) => ({ ...teamLabel(L, t), att: att[t], zone })), [t]);
   }
   // Keep 5..10, most important first but in a stable story order
   const headlines = H.map((h, i) => ({ ...h, i })).sort((a, b) => b.prio - a.prio || a.i - b.i).slice(0, 10)
@@ -762,7 +776,7 @@ export function awards(game) {
   const bl = by((t) => game.stats.backlashes[t] * 100 + game.stats.rejGained[t]);
   out.push({ key: "backlash", team: bl, value: `🚫 ×${game.stats.backlashes[bl]} · 🔥 ${game.stats.rejGained[bl]}` });
   const dip = by((t) => game.stats.deals[t]);
-  out.push({ key: "diplomat", team: dip, value: `🤝 ${game.stats.deals[dip]} deal(s)` });
+  out.push({ key: "diplomat", team: dip, value: `🤝 ×${game.stats.deals[dip]}` });
   const best = Object.entries(game.stats.cardInfluence).sort((a, b) => b[1] - a[1])[0];
   if (best) {
     const [team, cardId] = best[0].split(":");

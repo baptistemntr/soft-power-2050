@@ -85,7 +85,7 @@ export default async (req) => {
         const replyKeys = (await listKeys(st, `${K.offersPrefix(gid, turn)}reply/`))
           .filter((k) => k.endsWith(`-${team}`) && !k.endsWith(`/${from}-${team}`));
         const others = await Promise.all(replyKeys.map((k) => getJSON(st, k)));
-        if (others.some((r) => r && r.accept && r.type === offer.type)) return fail(409, `You already accepted a ${DIPLO_TYPES[offer.type].name.toLowerCase()} this turn`);
+        if (others.some((r) => r && r.accept && r.type === offer.type)) return fail(409, "You already accepted this kind of deal this turn");
       }
       const reply = { accept, type: offer.type, by: player.name, at: t };
       await setJSON(st, K.reply(gid, turn, from, team), reply);

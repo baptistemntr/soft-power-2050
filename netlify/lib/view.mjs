@@ -2,7 +2,7 @@
 // Never leaks other teams' hands or choices before the reveal.
 import {
   TEAMS, TEAM_IDS, COUNTRIES, NEIGHBORS, SEA_ROUTES, NEEDS, GAUGES, GAUGE_INFO, ROLES, CARD_ROLES,
-  CARDS, EVENTS, EVENT, YEARS, TURNS, TEXT, DIPLO_TYPES, FREE_COUNTRIES,
+  CARDS, EVENTS, EVENT, YEARS, TURNS, TEXT, DIPLO_TYPES, FREE_COUNTRIES, LANGS, DEFAULT_LANG, CONTENT_FR, ERRORS_FR,
 } from "./data.mjs";
 import {
   C, attract, effectivePhase, dealHand, eligible, cultureTargets, powerTargets, finalScores, awards,
@@ -14,6 +14,7 @@ export function staticData() {
     teams: TEAMS, countries: COUNTRIES, neighbors: NEIGHBORS, seaRoutes: SEA_ROUTES, needs: NEEDS,
     gauges: GAUGES, gaugeInfo: GAUGE_INFO, roles: ROLES, cardRoles: CARD_ROLES, cards: CARDS,
     events: EVENTS, years: YEARS, turns: TURNS, text: TEXT, diplo: DIPLO_TYPES,
+    langs: LANGS, defaultLang: DEFAULT_LANG, fr: CONTENT_FR, errorsFr: ERRORS_FR,
     thresholds: { warn: C.PLANET_WARN, lose: C.PLANET_LOSE, instant: C.PLANET_INSTANT, strong: C.STRONG_AT, warming: C.WARMING },
   };
 }

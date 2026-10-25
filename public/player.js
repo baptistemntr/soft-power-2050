@@ -17,7 +17,8 @@
   let pid = ls.get("sp_pid");
   if (!pid || !/^[A-Za-z0-9_-]{8,64}$/.test(pid)) { pid = newPid(); ls.set("sp_pid", pid); }
 
-  let D = null, S = null, offset = 0, fails = 0;
+  const I = window.SPI18n;
+  let R = null, D = null, S = null, offset = 0, fails = 0;   // R = raw static data, D = localised
   let viewKey = "";
   let tab = null;                 // active role tab
   let pending = {};               // role -> { card, target, at } optimistic picks
@@ -29,6 +30,10 @@
   let busy = false;
 
   const T = () => D.text;
+  const U = () => D.text.ui;
+  const tr = (v) => I.pick(v, D.lang);
+  const colon = () => (D.lang === "fr" ? " :" : ":");
+  const EV = () => (S.event ? D.events.find((e) => e.id === S.event.id) : null);
   const TEAM = () => Object.fromEntries(D.teams.map((t) => [t.id, t]));
   const CARD = () => Object.fromEntries(D.cards.map((c) => [c.id, c]));
   const COUNTRY = () => Object.fromEntries(D.countries.map((c) => [c.id, c]));
@@ -47,7 +52,7 @@
         if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
         return data;
       } catch (e) {
-        if (i + 1 >= tries || (e.status && e.status < 500)) throw e.status ? e : Object.assign(new Error("Network problem, try again"), { status: 0 });
+        if (i + 1 >= tries || (e.status && e.status < 500)) throw e.status ? e : Object.assign(new Error(D ? U().network : "Network problem"), { status: 0 });
         await new Promise((r) => setTimeout(r, 350 * (i + 1)));
       }
     }
@@ -73,7 +78,7 @@
     if (busy) return null;
     busy = true;
     try { const r = await api(url, body); if (okMsg) toast(okMsg); return r; }
-    catch (e) { toast(e.message, true); return null; }
+    catch (e) { toast(I.err(e.message, D), true); return null; }
     finally { busy = false; }
   }
 
@@ -99,15 +104,16 @@
       const v = card.fx[k];
       if (v) parts.push(`<span class="${v > 0 ? "pos" : "neg"}">${D.gaugeInfo[k].icon}${v > 0 ? "+" : "−"}${Math.abs(v)}</span>`);
     }
-    if (card.special === "climate_summit") parts.push(`<span class="pos">🌍+1 for all</span>`, `<span class="neg">💰−1</span>`);
-    if (card.special === "un_speech") parts.push(`<span class="pos">+1 influence in your whole zone</span>`);
-    if (card.influence) parts.push(`<span class="pos">🎯 +${card.influence}${card.special === "fete_plus1" ? " (+1 on 🎉)" : card.special === "fete_x2" ? " (×2 on 🎉)" : ""}${card.global ? " · 🌐 anywhere" : ""}</span>`);
-    return parts.join("") || `<span class="muted">No gauge effect</span>`;
+    const u = U();
+    if (card.special === "climate_summit") parts.push(`<span class="pos">🌍+1 ${esc(u.forAll)}</span>`, `<span class="neg">💰−1</span>`);
+    if (card.special === "un_speech") parts.push(`<span class="pos">${esc(u.unSpeech)}</span>`);
+    if (card.influence) parts.push(`<span class="pos">🎯 +${card.influence}${card.special === "fete_plus1" ? ` (+1 ${u.onFete})` : card.special === "fete_x2" ? ` (×2 ${u.onFete})` : ""}${card.global ? ` · 🌐 ${esc(u.anywhere)}` : ""}</span>`);
+    return parts.join("") || `<span class="muted">${esc(u.noFx)}</span>`;
   }
   function cardHtml(card, o) {
     o = o || {};
-    const tags = card.tags.length ? `<div class="tags">Helps: ${card.tags.map((t) => `${D.needs[t].icon} ${esc(D.needs[t].label)}`).join(" · ")}</div>` : "";
-    const warn = card.rejection > 0 ? `<div class="warn">⚠️ Backlash +${card.rejection}</div>` : card.rejection < 0 ? `<div class="tags">😌 Backlash ${card.rejection}</div>` : "";
+    const tags = card.tags.length ? `<div class="tags">${esc(U().helps)}${colon()} ${card.tags.map((t) => `${D.needs[t].icon} ${esc(D.needs[t].label)}`).join(" · ")}</div>` : "";
+    const warn = card.rejection > 0 ? `<div class="warn">⚠️ ${esc(T().backlash)} +${card.rejection}</div>` : card.rejection < 0 ? `<div class="tags">😌 ${esc(T().backlash)} ${card.rejection}</div>` : "";
     const extra = o.extra ? `<div class="tags">${o.extra}</div>` : "";
     const tag = o.button === false ? "div" : "button";
     return `<${tag} class="gcard${o.chosen ? " chosen" : ""}${o.vetoed ? " vetoed" : ""}" ${tag === "button" ? `type="button" data-card="${card.id}" aria-pressed="${o.chosen ? "true" : "false"}"` : ""}>
@@ -185,7 +191,10 @@
 
   function view() {
     const t = T();
-    if (S.phase === "nogame") return `<section class="panel center"><h1>${esc(t.title)}</h1><p class="muted">Waiting for the host to open the game… Keep this page open.</p></section>`;
+    return phaseView(t) + langBar();
+  }
+  function phaseView(t) {
+    if (S.phase === "nogame") return `<section class="panel center"><h1>${esc(t.title)}</h1><p class="muted">${esc(U().waitingHost)}</p></section>`;
     const p = S.private;
     if (!p || joinDraft.editing) return joinView();
     switch (S.phase) {
@@ -199,11 +208,14 @@
       default: return "";
     }
   }
+  function langBar() {
+    return `<nav class="langbar" aria-label="${esc(U().switchLang)}">${R.langs.map((l) => `<button type="button" class="chipbtn${l === D.lang ? " on" : ""}" data-lang="${l}" aria-pressed="${l === D.lang}" lang="${l}">${l === "fr" ? "🇫🇷" : "🇬🇧"} ${esc(R.text[l].langName)}</button>`).join("")}</nav>`;
+  }
 
   // ---- join
   function joinView() {
     const t = T();
-    const lateNote = S.phase !== "lobby" ? `<p class="muted">The game has started: you will join the smallest team as a co-player.</p>` : "";
+    const lateNote = S.phase !== "lobby" ? `<p class="muted">${esc(U().lateNote)}</p>` : "";
     const teams = D.teams.map((team) => `<button type="button" class="teambtn t-${team.id}${joinDraft.team === team.id ? " on" : ""}" data-team="${team.id}" aria-pressed="${joinDraft.team === team.id}">
         <span class="flag">${team.flag}</span><span class="tn">${esc(team.name)}</span><span class="cnt num">${S.teams[team.id].players.length}</span></button>`).join("");
     return `<section class="panel">
@@ -211,7 +223,7 @@
       <p class="muted">${esc(t.tagline)}</p>
       <form id="joinForm" class="stack" autocomplete="off">
         <label for="nick" class="lbl">${esc(t.join.nick)}</label>
-        <input id="nick" class="input" maxlength="16" minlength="2" required value="${esc(joinDraft.name)}" placeholder="e.g. Camille" enterkeyhint="go">
+        <input id="nick" class="input" maxlength="16" minlength="2" required value="${esc(joinDraft.name)}" placeholder="${esc(U().nickPlaceholder)}" enterkeyhint="go">
         ${S.phase === "lobby" ? `<div class="lbl">${esc(t.join.pickTeam)}</div>
         <div class="teamgrid">${teams}<button type="button" class="teambtn auto${joinDraft.team === "auto" ? " on" : ""}" data-team="auto" aria-pressed="${joinDraft.team === "auto"}"><span class="flag">🎲</span><span class="tn">Auto</span><span class="cnt"></span></button></div>` : lateNote}
         <button class="btn primary big" type="submit">${esc(t.join.go)} →</button>
@@ -226,8 +238,8 @@
       <h1>${esc(fill(t.waiting, { flag: "", team: team.name }).replace("  ", " "))}</h1>
       <h2 class="sub">${esc(t.teammates)}</h2>
       <ul class="mates">${me.teammates.map((m) => `<li>${m.me ? "⭐ " : ""}${esc(m.name)}</li>`).join("")}</ul>
-      <p class="muted">${S.totalPlayers} players connected. The host starts the game soon.</p>
-      <button class="btn small" id="changeTeam" type="button">Change nickname or country</button>
+      <p class="muted">${esc(I.fill(U().connected, { n: S.totalPlayers }))}</p>
+      <button class="btn small" id="changeTeam" type="button">${esc(U().changeTeam)}</button>
     </section>`;
   }
 
@@ -240,22 +252,22 @@
     const me = S.private.me, team = TEAM()[me.team];
     const pw = team.power;
     return `<section class="stack">
-      <div class="panel center"><p class="eyebrow">${esc(T().yourRoles)}${me.roles.length > 1 ? "s" : ""}</p><h1>${team.flag} ${esc(team.name)}</h1>
-      ${me.roles.length > 1 ? `<p class="muted">You hold ${me.roles.length} roles: you'll pick one card for each.</p>` : ""}</div>
+      <div class="panel center"><p class="eyebrow">${esc(me.roles.length > 1 ? U().yourRoles : U().yourRole)}</p><h1>${team.flag} ${esc(team.name)}</h1>
+      ${me.roles.length > 1 ? `<p class="muted">${esc(I.fill(U().multiRoles, { n: me.roles.length }))}</p>` : ""}</div>
       <div class="rolecards">${me.roles.map(roleCard).join("")}</div>
-      <div class="panel"><b>${pw.emoji} Your super-power: ${esc(pw.name)}</b><p class="muted">${esc(pw.desc)} Once per game, triggered by your president.</p>
+      <div class="panel"><b>${pw.emoji} ${esc(I.fill(U().yourPower, { name: pw.name }))}</b><p class="muted">${esc(pw.desc)} ${esc(U().powerOnce)}</p>
       ${gaugesHtml(me.team)}</div>
     </section>`;
   }
 
   // ---- event
   function eventBox(compact) {
-    const e = S.event;
+    const e = EV();
     if (!e) return "";
-    return `<div class="eventbox${compact ? " compact" : ""}"><div class="eyebrow">📰 ${esc(T().newspaper)} · ${S.year}</div><h2>${esc(e.title)}</h2>${compact ? "" : `<p class="flavor">${esc(e.subtitle)}</p>`}<p><b>${esc(T().whatItMeans)}:</b> ${esc(e.means)}</p></div>`;
+    return `<div class="eventbox${compact ? " compact" : ""}"><div class="eyebrow">📰 ${esc(T().newspaper)} · ${S.year}</div><h2>${esc(e.title)}</h2>${compact ? "" : `<p class="flavor">${esc(e.subtitle)}</p>`}<p><b>${esc(T().whatItMeans)}${colon()}</b> ${esc(e.means)}</p></div>`;
   }
   function eventView() {
-    return `<section class="stack">${eventBox(false)}<div class="panel"><p class="muted">🌡️ Business as usual: every country also loses 🌍 ${D.thresholds.warming} each turn.</p>${gaugesHtml(S.private.me.team)}<p class="muted center">Decisions open in a moment…</p></div></section>`;
+    return `<section class="stack">${eventBox(false)}<div class="panel"><p class="muted">${esc(I.fill(U().warming, { n: D.thresholds.warming }))}</p>${gaugesHtml(S.private.me.team)}<p class="muted center">${esc(U().decisionsSoon)}</p></div></section>`;
   }
 
   // ---- decide
@@ -275,7 +287,7 @@
     }).join("")}</div>` : "";
     return `<section class="stack">
       ${eventBox(true)}
-      <details class="panel mine"><summary>${flagName(me.team)} — your gauges <span class="muted">(${esc(fill(T().rolesReady, rc))})</span></summary>${gaugesHtml(me.team)}</details>
+      <details class="panel mine"><summary>${flagName(me.team)} — ${esc(U().yourGauges)} <span class="muted">(${esc(fill(T().rolesReady, rc))})</span></summary>${gaugesHtml(me.team)}</details>
       ${tabs}
       <div class="tabpanel">${tab === "diplomat" ? diplomatView() : roleDecideView(tab)}</div>
     </section>`;
@@ -286,13 +298,13 @@
     const C = CARD();
     const r = ROLE()[role];
     let html = `<h2 class="sectiontitle">${r.emoji} ${esc(r.name)} — ${esc(T().pickCard)}</h2>`;
-    if (pick && pick.by && pick.by !== S.private.me.name) html += `<p class="muted">Chosen by ${esc(pick.by)} (you can change it).</p>`;
-    html += `<div class="cards">${hand.map((id) => cardHtml(C[id], { chosen: pick && pick.card === id && !(cultureDraft && cultureDraft === id), extra: role === "culture" && pick && pick.card === id && pick.target ? `🎯 Target: ${countryName(pick.target)}` : "" })).join("")}</div>`;
+    if (pick && pick.by && pick.by !== S.private.me.name) html += `<p class="muted">${esc(I.fill(U().chosenBy, { name: pick.by }))}</p>`;
+    html += `<div class="cards">${hand.map((id) => cardHtml(C[id], { chosen: pick && pick.card === id && !(cultureDraft && cultureDraft === id), extra: role === "culture" && pick && pick.card === id && pick.target ? `🎯 ${esc(U().target)}${colon()} ${countryName(pick.target)}` : "" })).join("")}</div>`;
     if (role === "culture" && cultureDraft) {
       const targets = (S.private.targets || {})[cultureDraft] || [];
       html += targetPicker(targets, pick && pick.card === cultureDraft ? [pick.target] : [], `🎯 ${esc(T().pickTarget)} — ${esc(C[cultureDraft].name)}`);
     }
-    if (role === "president") html += `<p class="muted small">In the validation phase you'll also be able to veto one card and use your super-power.</p>`;
+    if (role === "president") html += `<p class="muted small">${esc(U().presHint)}</p>`;
     return html;
   }
   function targetPicker(targets, selected, title, id) {
@@ -303,7 +315,7 @@
       return `<button type="button" class="target${selected.includes(c) ? " on" : ""}" data-target="${c}" aria-pressed="${selected.includes(c)}">
         <span>${countryName(c)}</span><span class="muted small">${n.icon} ${esc(n.label)}${o ? ` · ${TEAM()[o].flag}` : ""}</span></button>`;
     }).join("");
-    return `<div class="picker" id="${id || "picker"}"><h3>${title}</h3><div class="minimap" id="minimap"></div><div class="targets">${list || `<p class="muted">No eligible country.</p>`}</div></div>`;
+    return `<div class="picker" id="${id || "picker"}"><h3>${title}</h3><div class="minimap" id="minimap"></div><div class="targets">${list || `<p class="muted">${esc(U().noEligible)}</p>`}</div></div>`;
   }
 
   // ---- diplomat
@@ -315,19 +327,19 @@
       return `<tr class="${team.id === me.team ? "me" : ""}"><td>${team.flag} ${esc(team.name)}${st.bot ? " 🤖" : ""}</td>${D.gauges.map((k) => `<td class="num">${st.gauges[k]}</td>`).join("")}<td class="num">${st.rejection}</td><td class="num"><b>${st.zone}</b></td></tr>`;
     }).join("");
     const canSend = S.phase === "decide";
-    const status = { pending: "⏳ waiting", accepted: "✅ accepted", refused: "❌ refused" };
-    const sent = dip.sent ? `<p>📤 Offer sent: ${D.diplo[dip.sent.type].emoji} ${esc(D.diplo[dip.sent.type].name)} → ${flagName(dip.sent.to)} — <b>${status[dip.sent.status]}</b></p>` : "";
+    const status = U().status;
+    const sent = dip.sent ? `<p>${esc(U().offerSent)}${colon()} ${D.diplo[dip.sent.type].emoji} ${esc(D.diplo[dip.sent.type].name)} → ${flagName(dip.sent.to)} — <b>${status[dip.sent.status]}</b></p>` : "";
     const form = canSend ? `<div class="offerform">
-        <div class="lbl">To</div><div class="chips">${others.map((t) => `<button type="button" class="chipbtn${offerDraft.to === t.id ? " on" : ""}" data-offer-to="${t.id}" aria-pressed="${offerDraft.to === t.id}">${t.flag} ${esc(t.name)}</button>`).join("")}</div>
-        <div class="lbl">Deal</div><div class="chips">${Object.entries(D.diplo).map(([k, v]) => `<button type="button" class="chipbtn${offerDraft.type === k ? " on" : ""}" data-offer-type="${k}" aria-pressed="${offerDraft.type === k}" title="${esc(v.desc)}">${v.emoji} ${esc(v.name)}</button>`).join("")}</div>
+        <div class="lbl">${esc(U().to)}</div><div class="chips">${others.map((t) => `<button type="button" class="chipbtn${offerDraft.to === t.id ? " on" : ""}" data-offer-to="${t.id}" aria-pressed="${offerDraft.to === t.id}">${t.flag} ${esc(t.name)}</button>`).join("")}</div>
+        <div class="lbl">${esc(U().deal)}</div><div class="chips">${Object.entries(D.diplo).map(([k, v]) => `<button type="button" class="chipbtn${offerDraft.type === k ? " on" : ""}" data-offer-type="${k}" aria-pressed="${offerDraft.type === k}" title="${esc(v.desc)}">${v.emoji} ${esc(v.name)}</button>`).join("")}</div>
         ${offerDraft.type ? `<p class="muted small">${esc(D.diplo[offerDraft.type].desc)}</p>` : ""}
-        <button type="button" class="btn primary" id="sendOffer" ${offerDraft.to && offerDraft.type ? "" : "disabled"}>${esc(T().sendOffer)}${dip.sent ? " (replaces the previous one)" : ""}</button></div>` : "";
-    const received = dip.received.length ? dip.received.map((o) => `<div class="offer"><span>${flagName(o.from)} proposes ${D.diplo[o.type].emoji} <b>${esc(D.diplo[o.type].name)}</b><br><span class="muted small">${esc(D.diplo[o.type].desc)}</span></span>
+        <button type="button" class="btn primary" id="sendOffer" ${offerDraft.to && offerDraft.type ? "" : "disabled"}>${esc(T().sendOffer)}${dip.sent ? esc(U().replaces) : ""}</button></div>` : "";
+    const received = dip.received.length ? dip.received.map((o) => `<div class="offer"><span>${flagName(o.from)} ${esc(U().proposes)} ${D.diplo[o.type].emoji} <b>${esc(D.diplo[o.type].name)}</b><br><span class="muted small">${esc(D.diplo[o.type].desc)}</span></span>
         ${o.status === "pending" || S.phase === "decide" || (S.phase === "validate" && !S.locked) ? `<span class="row"><button type="button" class="btn small primary" data-reply="${o.from}" data-accept="1" ${o.status === "accepted" ? "disabled" : ""}>${esc(T().accept)}</button><button type="button" class="btn small" data-reply="${o.from}" data-accept="0" ${o.status === "refused" ? "disabled" : ""}>${esc(T().refuse)}</button></span>` : ""}
         <span class="small">${status[o.status]}</span></div>`).join("") : `<p class="muted">${esc(T().noOffers)}</p>`;
-    return `<h2 class="sectiontitle">🤝 Diplomat — the world at a glance</h2>
+    return `<h2 class="sectiontitle">${esc(U().diploTitle)}</h2>
       <div class="tablewrap"><table class="world"><thead><tr><th></th>${D.gauges.map((k) => `<th>${D.gaugeInfo[k].icon}</th>`).join("")}<th>🔥</th><th>🗺️</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <h3>${esc(T().sendOffer)}</h3>${sent}${form || (S.phase !== "decide" ? `<p class="muted">Offers can only be sent during the decision phase.</p>` : "")}
+      <h3>${esc(T().sendOffer)}</h3>${sent}${form || (S.phase !== "decide" ? `<p class="muted">${esc(U().offersOnlyDecide)}</p>` : "")}
       <h3>${esc(T().offersReceived)}</h3>${received}`;
   }
 
@@ -340,7 +352,7 @@
     return D.cardRoles.map((r) => {
       const p = picks[r];
       const role = ROLE()[r];
-      if (!p) return `<div class="choice empty">${role.emoji} ${esc(role.name)}: <span class="muted">☕ no card</span></div>`;
+      if (!p) return `<div class="choice empty">${role.emoji} ${esc(role.name)}: <span class="muted">${esc(U().noCard)}</span></div>`;
       const extra = p.target ? `🎯 ${countryName(p.target)}` : "";
       const vbtn = o.vetoable ? `<button type="button" class="btn small ${veto === r ? "danger" : ""}" data-veto="${r}" aria-pressed="${veto === r}">${veto === r ? "✋ " + esc(T().vetoed) : esc(T().veto)}</button>` : "";
       return `<div class="choice">${role.emoji} <span class="cname">${esc(C[p.card].emoji)} <b>${esc(C[p.card].name)}</b> ${extra}<br><span class="fx small">${fxHtml(C[p.card])}</span></span>${vbtn}${veto === r && !o.vetoable ? `<span class="chip">✋ ${esc(T().vetoed)}</span>` : ""}</div>`;
@@ -359,13 +371,13 @@
       if (st.powerUsed) powerBlock = `<p class="muted">${pw.emoji} ${esc(T().powerUsed)}</p>`;
       else {
         powerBlock = `<button type="button" class="btn ${presDraft.power ? "primary" : ""}" id="togglePower" aria-pressed="${presDraft.power}">${pw.emoji} ${esc(T().usePower)}: ${esc(pw.name)}${presDraft.power ? " ✓" : ""}</button><p class="muted small">${esc(pw.desc)}</p>`;
-        if (presDraft.power && pw.targets > 0) powerBlock += targetPicker(S.private.powerTargets || [], presDraft.targets, `🎯 Pick ${pw.targets} target${pw.targets > 1 ? "s" : ""} (${presDraft.targets.length}/${pw.targets})`, "powerPicker");
+        if (presDraft.power && pw.targets > 0) powerBlock += targetPicker(S.private.powerTargets || [], presDraft.targets, esc(I.fill(U().pickTargets, { n: pw.targets, k: presDraft.targets.length })), "powerPicker");
       }
-      parts.push(`<div class="panel"><h2 class="sectiontitle">👑 President — validate your team's choices</h2>
+      parts.push(`<div class="panel"><h2 class="sectiontitle">${esc(U().presTitle)}</h2>
         <div class="choices">${teamChoicesHtml({ vetoable: true, veto: presDraft.veto })}</div>
-        <p class="muted small">You may veto one card (the strike can't be vetoed).</p>
+        <p class="muted small">${esc(U().vetoHint)}</p>
         ${powerBlock}
-        <button type="button" class="btn primary big" id="confirmPres">${confirmed ? "Confirmed ✓ (tap to update)" : esc(T().confirm)}</button></div>`);
+        <button type="button" class="btn primary big" id="confirmPres">${esc(confirmed ? U().confirmed : T().confirm)}</button></div>`);
     }
     if (me.roles.includes("voice") && !locked) {
       const sv = S.private.voice;
@@ -373,18 +385,18 @@
       let block;
       if (st.strikeUsed) block = `<p class="muted">📣 ${esc(T().strikeUsed)}</p>`;
       else block = `<p>${esc(T().strikeTarget)}</p><div class="chips">
-          ${["eco", "ecolo"].map((r) => `<button type="button" class="chipbtn${voiceDraft === r ? " on" : ""}" data-strike="${r}" aria-pressed="${voiceDraft === r}">${ROLE()[r].emoji} Cancel ${esc(ROLE()[r].name)}</button>`).join("")}
-          <button type="button" class="chipbtn${voiceDraft === "none" || !voiceDraft ? " on" : ""}" data-strike="none">🕊️ No strike</button></div>
-          <p class="muted small">Once per game: cancels that card, 🤝+1, 💰−1.</p>
-          <button type="button" class="btn ${voiceDraft && voiceDraft !== "none" ? "danger" : ""} big" id="confirmStrike">${voiceDraft && voiceDraft !== "none" ? esc(T().strike) : "Keep the peace"}${sv && (sv.strike || "none") === (voiceDraft || "none") ? " ✓" : ""}</button>`;
-      parts.push(`<div class="panel"><h2 class="sectiontitle">📣 Voice of the people</h2>${block}</div>`);
+          ${["eco", "ecolo"].map((r) => `<button type="button" class="chipbtn${voiceDraft === r ? " on" : ""}" data-strike="${r}" aria-pressed="${voiceDraft === r}">${ROLE()[r].emoji} ${esc(I.fill(U().cancelRole, { role: ROLE()[r].name }))}</button>`).join("")}
+          <button type="button" class="chipbtn${voiceDraft === "none" || !voiceDraft ? " on" : ""}" data-strike="none">${esc(U().noStrike)}</button></div>
+          <p class="muted small">${esc(U().strikeHint)}</p>
+          <button type="button" class="btn ${voiceDraft && voiceDraft !== "none" ? "danger" : ""} big" id="confirmStrike">${voiceDraft && voiceDraft !== "none" ? esc(T().strike) : esc(U().keepPeace)}${sv && (sv.strike || "none") === (voiceDraft || "none") ? " ✓" : ""}</button>`;
+      parts.push(`<div class="panel"><h2 class="sectiontitle">${esc(U().voiceTitle)}</h2>${block}</div>`);
     }
     if (me.roles.includes("diplomat") && !locked && S.private.diplomacy && S.private.diplomacy.received.length) parts.push(`<div class="panel">${diplomatView()}</div>`);
     if (!me.roles.includes("president") || locked) {
       const sp = serverPres || {};
-      parts.unshift(`<div class="panel"><h2 class="sectiontitle">${locked ? "🔒 Choices are locked" : `👑 ${esc(T().presidentDeciding)}`}</h2><div class="choices">${teamChoicesHtml({ veto: sp.veto })}</div>${sp.power ? `<p>⚡ ${team.power.emoji} ${esc(team.power.name)} will be used!</p>` : ""}</div>`);
+      parts.unshift(`<div class="panel"><h2 class="sectiontitle">${locked ? esc(U().lockedTitle) : `👑 ${esc(T().presidentDeciding)}`}</h2><div class="choices">${teamChoicesHtml({ veto: sp.veto })}</div>${sp.power ? `<p>⚡ ${team.power.emoji} ${esc(I.fill(U().powerWillBeUsed, { power: team.power.name }))}</p>` : ""}</div>`);
     }
-    return `<section class="stack">${parts.join("")}<p class="muted center">Reveal in a moment on the big screen 👀</p></section>`;
+    return `<section class="stack">${parts.join("")}<p class="muted center">${esc(U().revealSoon)}</p></section>`;
   }
 
   // ---- reveal
@@ -398,8 +410,8 @@
     const general = S.headlines.filter((h) => !h.teams.includes(me.team)).slice(0, 3);
     return `<section class="stack">
       <div class="panel"><p class="eyebrow">${S.year} — ${esc(T().phases.reveal)}</p><h2>${flagName(me.team)}</h2>${deltas}${gaugesHtml(me.team)}</div>
-      <div class="panel"><h3>📰 Your headlines</h3><ul class="heads">${(mine.length ? mine : general).map((h) => `<li>${esc(h.text)}</li>`).join("")}</ul></div>
-      <div class="panel"><h3>🗺️ The map</h3><div class="minimap full" id="minimap"></div></div>
+      <div class="panel"><h3>${esc(U().yourHeadlines)}</h3><ul class="heads">${(mine.length ? mine : general).map((h) => `<li>${esc(tr(h.text))}</li>`).join("")}</ul></div>
+      <div class="panel"><h3>${esc(U().theMap)}</h3><div class="minimap full" id="minimap"></div></div>
     </section>`;
   }
 
@@ -412,10 +424,10 @@
     const award = e.awards.filter((a) => a.team === me.team);
     return `<section class="stack">
       <div class="panel center"><div class="verdict ${S.gameOver ? "lost" : "ok"}">${esc(S.gameOver ? T().gameOver : T().planetSurvived)}</div>
-      <h1>${team[me.team].flag} #${mine.rank}</h1><p class="muted">${mine.zone} countries in your zone · ✨ ${mine.attract}</p></div>
-      <div class="panel"><h3>🏁 Final ranking</h3><ol class="ranking ${S.gameOver ? "grey" : ""}">${e.scores.map((s) => `<li class="${s.team === me.team ? "me" : ""}">${team[s.team].flag} ${esc(team[s.team].name)} <b class="num">${s.zone}</b></li>`).join("")}</ol></div>
-      ${award.length ? `<div class="panel"><h3>🏆 Your award${award.length > 1 ? "s" : ""}</h3>${award.map((a) => `<p><b>${esc(T().awards[a.key])}</b> — ${esc(a.value)}</p>`).join("")}</div>` : ""}
-      <div class="panel center debatebox"><p class="eyebrow">Debate</p><h2>${esc(T().debate)}</h2></div>
+      <h1>${team[me.team].flag} #${mine.rank}</h1><p class="muted">${esc(I.fill(U().countriesZone, { n: mine.zone }))} · ✨ ${mine.attract}</p></div>
+      <div class="panel"><h3>${esc(U().finalRanking)}</h3><ol class="ranking ${S.gameOver ? "grey" : ""}">${e.scores.map((s) => `<li class="${s.team === me.team ? "me" : ""}">${team[s.team].flag} ${esc(team[s.team].name)} <b class="num">${s.zone}</b></li>`).join("")}</ol></div>
+      ${award.length ? `<div class="panel"><h3>${esc(U().yourAward)}</h3>${award.map((a) => `<p><b>${esc(T().awards[a.key])}</b> — ${esc(a.card ? `${CARD()[a.card].emoji} ${CARD()[a.card].name}` : a.value)}</p>`).join("")}</div>` : ""}
+      <div class="panel center debatebox"><p class="eyebrow">${esc(U().debateLabel)}</p><h2>${esc(T().debate)}</h2></div>
     </section>`;
   }
 
@@ -441,6 +453,7 @@
     const ct = $("changeTeam");
     if (ct) ct.onclick = () => { joinDraft.editing = true; joinDraft.name = S.private.me.name; joinDraft.team = S.private.me.team; viewKey = ""; render(); };
 
+    app.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
     app.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; cultureDraft = null; render(); }));
 
     // card picks
@@ -450,7 +463,7 @@
       if (role === "culture") { cultureDraft = id; render(); const pk = $("picker"); if (pk) pk.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
       pending[role] = { card: id, at: Date.now() };
       render();
-      const r = await send("/api/pick", { pid, role, card: id }, "Saved ✓");
+      const r = await send("/api/pick", { pid, role, card: id }, U().saved);
       if (!r) { delete pending[role]; render(); }
     }));
     const chooseCultureTarget = async (c) => {
@@ -459,7 +472,7 @@
       pending.culture = { card: id, target: c, at: Date.now() };
       cultureDraft = null;
       render();
-      const r = await send("/api/pick", { pid, role: "culture", card: id, target: c }, "Saved ✓");
+      const r = await send("/api/pick", { pid, role: "culture", card: id, target: c }, U().saved);
       if (!r) { delete pending.culture; render(); }
     };
     const picker = $("picker");
@@ -473,8 +486,8 @@
     app.querySelectorAll("[data-offer-to]").forEach((b) => b.addEventListener("click", () => { offerDraft.to = b.dataset.offerTo; render(); }));
     app.querySelectorAll("[data-offer-type]").forEach((b) => b.addEventListener("click", () => { offerDraft.type = b.dataset.offerType; render(); }));
     const so = $("sendOffer");
-    if (so) so.onclick = async () => { const r = await send("/api/team", { pid, action: "offer", to: offerDraft.to, type: offerDraft.type }, "Offer sent 📤"); if (r) offerDraft = { to: null, type: null }; };
-    app.querySelectorAll("[data-reply]").forEach((b) => b.addEventListener("click", () => send("/api/team", { pid, action: "reply", from: b.dataset.reply, accept: b.dataset.accept === "1" }, b.dataset.accept === "1" ? "Deal accepted 🤝" : "Offer refused")));
+    if (so) so.onclick = async () => { const r = await send("/api/team", { pid, action: "offer", to: offerDraft.to, type: offerDraft.type }, U().offerSentToast); if (r) offerDraft = { to: null, type: null }; };
+    app.querySelectorAll("[data-reply]").forEach((b) => b.addEventListener("click", () => send("/api/team", { pid, action: "reply", from: b.dataset.reply, accept: b.dataset.accept === "1" }, b.dataset.accept === "1" ? U().dealAccepted : U().offerRefused)));
 
     // president
     app.querySelectorAll("[data-veto]").forEach((b) => b.addEventListener("click", () => { presDraft.veto = presDraft.veto === b.dataset.veto ? null : b.dataset.veto; render(); }));
@@ -496,16 +509,29 @@
     const cp = $("confirmPres");
     if (cp) cp.onclick = async () => {
       const pw = TEAM()[S.private.me.team].power;
-      if (presDraft.power && pw.targets > 0 && !presDraft.targets.length) { toast("Pick a target for your super-power", true); return; }
-      await send("/api/team", { pid, action: "president", veto: presDraft.veto, power: presDraft.power, targets: presDraft.targets }, "Confirmed 👑");
+      if (presDraft.power && pw.targets > 0 && !presDraft.targets.length) { toast(I.err("Pick a target for your super-power", D), true); return; }
+      await send("/api/team", { pid, action: "president", veto: presDraft.veto, power: presDraft.power, targets: presDraft.targets }, U().confirmedToast);
     };
     // voice
     app.querySelectorAll("[data-strike]").forEach((b) => b.addEventListener("click", () => { voiceDraft = b.dataset.strike; render(); }));
     const cs = $("confirmStrike");
-    if (cs) cs.onclick = () => send("/api/team", { pid, action: "strike", target: voiceDraft && voiceDraft !== "none" ? voiceDraft : null }, voiceDraft && voiceDraft !== "none" ? "Strike called 📣" : "Saved ✓");
+    if (cs) cs.onclick = () => send("/api/team", { pid, action: "strike", target: voiceDraft && voiceDraft !== "none" ? voiceDraft : null }, voiceDraft && voiceDraft !== "none" ? U().strikeCalled : U().saved);
 
     // reveal mini-map
     if (S.phase === "reveal" && $("minimap")) mountMini(null, [], null, null, S.private.me.team);
+  }
+
+  function setLang(lang) {
+    I.remember("sp_lang", lang);
+    D = I.localize(R, lang);
+    applyStaticTexts();
+    viewKey = "";
+    render();
+  }
+  function applyStaticTexts() {
+    document.documentElement.lang = D.lang;
+    $("reconnect").textContent = T().reconnecting;
+    if (!S) $("app").innerHTML = `<p class="muted center">${esc(U().loading)}</p>`;
   }
 
   function mountMini(selectable, selected, onSelect, focus, highlight) {
@@ -517,8 +543,9 @@
 
   async function boot() {
     for (let i = 0; !D; i++) {
-      try { D = await api("/api/state?static=1"); } catch { $("reconnect").hidden = false; await new Promise((r) => setTimeout(r, Math.min(5000, 800 * (i + 1)))); }
+      try { R = await api("/api/state?static=1"); D = I.localize(R, I.current("sp_lang", R)); } catch { $("reconnect").hidden = false; await new Promise((r) => setTimeout(r, Math.min(5000, 800 * (i + 1)))); }
     }
+    applyStaticTexts();
     $("reconnect").hidden = true;
     poll();
     tick();
