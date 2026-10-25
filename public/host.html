@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soft Power 2050 — Host</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="host">
+  <header class="topbar">
+    <div class="brand display">SOFT POWER <span>2050</span></div>
+    <div class="turn display num" id="turn">2030</div>
+    <div class="chip phase" id="phase">…</div>
+    <div class="timer-wrap">
+      <div class="timer" id="timer" aria-live="off">--:--</div>
+      <div class="progress"><i id="progress"></i></div>
+    </div>
+  </header>
+
+  <div class="alert-banner" id="planetAlert" hidden></div>
+
+  <main class="host-main">
+    <section class="map-zone">
+      <div id="map" class="map"></div>
+      <div class="map-note" id="mapNote" hidden></div>
+      <div class="overlay" id="overlay" hidden></div>
+    </section>
+    <aside class="teams" id="teams" aria-label="Teams"></aside>
+  </main>
+
+  <footer class="bottombar">
+    <div class="ticker" id="ticker" aria-live="polite"></div>
+    <div class="planet" id="planet" aria-label="Common planet score">
+      <div class="planet-label"><span>🌍</span> <span id="planetText">Common planet</span></div>
+      <div class="thermo"><i id="thermoFill"></i><b class="mark" id="markWarn"></b><b class="mark lose" id="markLose"></b></div>
+    </div>
+  </footer>
+
+  <details class="control" id="control">
+    <summary>⚙️ Host</summary>
+    <div class="control-body">
+      <form id="keyForm" class="row">
+        <label class="sr-only" for="keyInput">Host key</label>
+        <input id="keyInput" type="password" placeholder="Host key" autocomplete="current-password">
+        <button class="btn small" type="submit">Save</button>
+      </form>
+      <div class="row">
+        <button class="btn small primary" id="btnNext">Next ▶</button>
+        <button class="btn small" id="btnClose">Close now ⏹</button>
+      </div>
+      <div class="row">
+        <label for="timerRange">Decide timer</label>
+        <input id="timerRange" type="range" min="60" max="240" step="10" value="150">
+        <output id="timerOut" class="num">150 s</output>
+        <button class="btn small" id="btnTimer">Set</button>
+      </div>
+      <div class="row">
+        <button class="btn small danger" id="btnReset" title="Double-click to reset">Reset (double-click)</button>
+        <span class="muted small" id="ctlMsg"></span>
+      </div>
+      <div class="players" id="playerList"></div>
+      <p class="muted small">Keys: → or Space = next · R twice = reset</p>
+    </div>
+  </details>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="map.js"></script>
+  <script src="host.js"></script>
+</body>
+</html>
