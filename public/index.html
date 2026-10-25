@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1022">
+<title>Soft Power 2050</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body class="player">
+  <div class="reconnect" id="reconnect" hidden role="status">Reconnecting…</div>
+  <header class="ptop" id="ptop">
+    <div class="pbrand display">SOFT POWER <span>2050</span></div>
+    <div class="pteam" id="pteam"></div>
+    <div class="ptimer timer" id="ptimer" aria-live="off"></div>
+  </header>
+  <div class="alert-banner" id="palert" hidden></div>
+  <main class="pmain" id="app" aria-live="polite">
+    <p class="muted center">Loading…</p>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="map.js"></script>
+  <script src="player.js"></script>
+</body>
+</html>
