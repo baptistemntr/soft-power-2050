@@ -30,6 +30,19 @@ const host = async (action, extra = {}) => {
   return j.state;
 };
 
+// Press → on the host screen and check the server really moved to one of the expected phases.
+async function press(hp, expected, label) {
+  await hp.keyboard.press("ArrowRight");
+  for (let k = 0; k < 24; k++) {
+    const st = await (await fetch(`${BASE}/api/state`)).json();
+    if (expected.includes(st.phase)) return st;
+    await sleep(500);
+  }
+  const st = await (await fetch(`${BASE}/api/state`)).json();
+  issues.push(`${label}: host → did not reach ${expected.join("/")} (server phase ${st.phase})`);
+  return st;
+}
+
 // ------------------------------------------------------------------ layout checks
 async function checkLayout(page, label) {
   const res = await page.evaluate(() => {
@@ -121,13 +134,13 @@ try {
 
   for (let turn = 1; turn <= 6; turn++) {
     globalThis.curTurn = turn;
-    await hp.keyboard.press("ArrowRight"); // roles/reveal -> event
+    await press(hp, ["event"], `turn ${turn} event`);
     await hp.waitForSelector(".paper");
     await Promise.all(players.map((p) => p.page.waitForSelector(".eventbox", { timeout: 15000 })));
     await sleep(900);
     if (turn === 1) { await shot(hp, "host-03-event"); await shot(players[0].page, "player-phone-04-event"); }
 
-    await hp.keyboard.press("ArrowRight"); // event -> decide
+    await press(hp, ["decide"], `turn ${turn} decide`);
     await Promise.all(players.map((p) => p.page.waitForSelector(".tabpanel", { timeout: 15000 })));
     // every player picks a card for each of their roles
     await Promise.all(players.map(async (p) => {
@@ -188,6 +201,12 @@ try {
     // validate
     console.log(`turn ${turn}: closing decisions at ${new Date().toISOString().slice(14, 19)}`);
     await hp.keyboard.press("ArrowRight"); // close decisions
+    for (let k = 0; k < 20; k++) {
+      const ph = (await (await fetch(`${BASE}/api/state`)).json()).phase;
+      if (ph === "validate") break;
+      if (k === 19) { issues.push(`turn ${turn}: host key press did not close decisions`); await host("close"); }
+      await sleep(500);
+    }
     await Promise.all(players.map((p) => p.page.waitForFunction(() => !!document.querySelector("#confirmPres, .choices"), null, { timeout: 15000 })
       .catch(async (e) => { await p.page.screenshot({ path: `${OUT}debug-validate-p${p.i}.png`, fullPage: true }); console.log(`p${p.i}`, p.me.roles, (await p.page.innerText("#app")).slice(0, 300)); throw e; })));
     await sleep(800);
@@ -222,7 +241,7 @@ try {
     // reveal
     const before = await hp.evaluate(() => document.querySelectorAll(".tile[data-owner]").length);
     await hp.keyboard.press("ArrowRight");
-    await hp.waitForSelector(".tpanel .dl", { timeout: 30000 });
+    await hp.waitForSelector(".tpanel .dl", { timeout: 75000 });
     const after = await hp.evaluate(() => document.querySelectorAll(".tile[data-owner]").length);
     const st = await (await fetch(`${BASE}/api/state`)).json();
     console.log(`turn ${turn}: ${st.changes.filter((c) => !c.tier).length} map changes, owned ${before}→${after}, planet ${st.globalPlanet}, headlines ${st.headlines.length}`);
@@ -233,7 +252,7 @@ try {
     }
     if (turn === 3 && !Object.keys(st.reveal.strikes).length) issues.push("turn 3: no strike recorded");
     if (turn <= 2) { await shot(hp, `host-06-reveal-t${turn}`); }
-    await Promise.all(players.map((p) => p.page.waitForSelector(".deltas", { timeout: 15000 })));
+    await Promise.all(players.map((p) => p.page.waitForSelector(".deltas", { timeout: 45000 })));
     if (turn === 1) { await shot(players[0].page, "player-phone-10-reveal"); await shot(players[11].page, "player-laptop-10-reveal"); }
     if (st.gameOver) { console.log("planet game over"); break; }
   }

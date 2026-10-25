@@ -18,7 +18,7 @@ export default async (req) => {
   const t = now();
   const key = K.player(game.gameId, pid);
   const existing = await getJSON(st, key);
-  const players = await loadPlayers(st, game.gameId, { fresh: true });
+  const players = await loadPlayers(st, game, { fresh: true });
 
   let record;
   if (game.phase === "lobby") {

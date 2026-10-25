@@ -47,65 +47,84 @@ export async function listKeys(st, prefix) {
 }
 
 // Tiny per-instance cache to protect Blobs from 30 clients polling every 1.5 s.
+// It stores promises, so simultaneous identical reads share a single Blobs call.
 const cache = new Map();
-export async function cached(key, ttlMs, fn) {
+const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Blobs timeout")), ms))]);
+export function cached(key, ttlMs, fn) {
   if (!cacheEnabled) return fn();
   const hit = cache.get(key);
   const t = Date.now();
-  if (hit && t - hit.at < ttlMs) return hit.value;
-  const value = await fn();
-  cache.set(key, { at: t, value });
-  if (cache.size > 200) cache.delete(cache.keys().next().value);
-  return value;
+  if (hit && t - hit.at < ttlMs) return hit.p;
+  const p = withTimeout(Promise.resolve().then(fn), 8000);
+  cache.set(key, { at: t, p });
+  p.catch(() => { if (cache.get(key) && cache.get(key).p === p) cache.delete(key); });
+  if (cache.size > 300) cache.delete(cache.keys().next().value);
+  return p;
 }
 
-export async function loadGame(st) { return getJSON(st, K.game); }
+// cacheMs > 0 only for read-only polling (state); writers always read the fresh game.
+export async function loadGame(st, { cacheMs = 0 } = {}) {
+  return cacheMs ? cached("game", cacheMs, () => getJSON(st, K.game)) : getJSON(st, K.game);
+}
+export const loadPlayer = (st, gid, pid) => cached(`v:${K.player(gid, pid)}`, 3000, () => getJSON(st, K.player(gid, pid)));
 
-export async function loadPlayers(st, gid, { fresh = false } = {}) {
+// Player records. During the game the roster (names, teams, roles) lives in `game`,
+// so only late joiners (not in the roster) need to be fetched.
+export async function loadPlayers(st, game, { fresh = false } = {}) {
+  const gid = game.gameId;
+  const roster = game.phase === "lobby" ? {} : game.roster || {};
   const load = async () => {
-    const keys = await listKeys(st, K.playersPrefix(gid));
+    const keys = (await listKeys(st, K.playersPrefix(gid))).filter((k) => !roster[k.slice(K.playersPrefix(gid).length)]);
     const rows = await Promise.all(keys.map((k) => getJSON(st, k)));
     return rows.filter(Boolean);
   };
-  return fresh ? load() : cached(`players:${gid}`, 1200, load);
+  return fresh ? load() : cached(`players:${gid}:${game.phase === "lobby"}`, 1200, load);
 }
 
+const getCached = (st, key, fresh) => (fresh ? getJSON(st, key) : cached(`v:${key}`, 900, () => getJSON(st, key)));
+
 // All choices of one turn, parsed from the key names.
-export async function loadTurn(st, gid, turn, { fresh = false } = {}) {
-  const load = async () => {
+//   team = null      -> keys only (enough for the public "who has chosen" ticks)
+//   team = "fra"     -> values of everything that concerns that team
+//   all = true       -> every value (turn resolution)
+export async function loadTurn(st, gid, turn, { fresh = false, team = null, all = false } = {}) {
+  const listAll = async () => {
     const [pk, tk, ok] = await Promise.all([
       listKeys(st, K.picksPrefix(gid, turn)),
       listKeys(st, K.teamPrefix(gid, turn)),
       listKeys(st, K.offersPrefix(gid, turn)),
     ]);
-    const all = [...pk, ...tk, ...ok];
-    const vals = await Promise.all(all.map((k) => getJSON(st, k)));
-    const out = { picks: {}, president: {}, voice: {}, offers: [], replies: {} };
-    all.forEach((key, i) => {
-      const v = vals[i];
-      if (!v) return;
-      const parts = key.split("/");
-      if (parts[0] === "picks") {
-        const [, , , team, role] = parts;
-        if (!TEAM_IDS.includes(team) || !CARD_ROLES.includes(role)) return;
-        (out.picks[team] = out.picks[team] || {})[role] = v;
-      } else if (parts[0] === "team") {
-        const [, , , team, who] = parts;
-        if (!TEAM_IDS.includes(team)) return;
-        if (who === "president") out.president[team] = v;
-        if (who === "voice") out.voice[team] = v;
-      } else if (parts[0] === "offers") {
-        const isReply = parts[3] === "reply";
-        const pair = isReply ? parts[4] : parts[3];
-        const [from, to] = (pair || "").split("-");
-        if (!TEAM_IDS.includes(from) || !TEAM_IDS.includes(to)) return;
-        if (isReply) out.replies[pair] = v;
-        else out.offers.push({ ...v, from, to });
-      }
-    });
-    return out;
+    return [...pk, ...tk, ...ok];
   };
-  return fresh ? load() : cached(`turn:${gid}:${turn}`, 900, load);
+  const keys = fresh ? await listAll() : await cached(`turnkeys:${gid}:${turn}`, 900, listAll);
+  const out = { picks: {}, president: {}, voice: {}, offers: [], replies: {} };
+  const items = [];
+  for (const key of keys) {
+    const parts = key.split("/");
+    if (parts[0] === "picks") {
+      const [, , , t, role] = parts;
+      if (TEAM_IDS.includes(t) && CARD_ROLES.includes(role)) items.push({ key, kind: "pick", t, role, mine: t === team });
+    } else if (parts[0] === "team") {
+      const [, , , t, who] = parts;
+      if (TEAM_IDS.includes(t) && (who === "president" || who === "voice")) items.push({ key, kind: who, t, mine: t === team });
+    } else if (parts[0] === "offers") {
+      const isReply = parts[3] === "reply";
+      const pair = isReply ? parts[4] : parts[3];
+      const [from, to] = (pair || "").split("-");
+      if (TEAM_IDS.includes(from) && TEAM_IDS.includes(to)) items.push({ key, kind: isReply ? "reply" : "offer", pair, from, to, mine: from === team || to === team });
+    }
+  }
+  const vals = await Promise.all(items.map((it) => (all || it.mine ? getCached(st, it.key, fresh) : Promise.resolve({}))));
+  items.forEach((it, i) => {
+    const v = vals[i];
+    if (!v) return;
+    if (it.kind === "pick") (out.picks[it.t] = out.picks[it.t] || {})[it.role] = v;
+    else if (it.kind === "president") out.president[it.t] = v;
+    else if (it.kind === "voice") out.voice[it.t] = v;
+    else if (it.kind === "reply") out.replies[it.pair] = v;
+    else out.offers.push({ ...v, from: it.from, to: it.to });
+  });
+  return out;
 }
 
 // ---------------------------------------------------------------- HTTP helpers

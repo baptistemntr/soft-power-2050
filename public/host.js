@@ -31,24 +31,34 @@
 
   // ------------------------------------------------------------------ API
   async function getJSON(url, opts) {
-    const res = await fetch(url, { cache: "no-store", ...opts });
+    const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined, ...opts });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(body.error || `HTTP ${res.status}`), { status: res.status });
     return body;
   }
+  let inFlight = false;
   async function hostAction(action, extra) {
     if (!hostKey) { openControl("Enter the host key first."); return null; }
+    if (inFlight) return null; // ignore double presses while an action is running
+    inFlight = true;
     try {
-      const r = await getJSON("/api/host", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: hostKey, action, ...(extra || {}) }) });
-      msg("");
-      onState(r.state);
-      return r.state;
-    } catch (e) {
-      if (e.status === 403) { msg("Wrong host key."); openControl(); }
-      else msg(e.message);
-      return null;
-    }
+      for (let i = 0; ; i++) {
+        try {
+          const r = await getJSON("/api/host", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: hostKey, action, ...(extra || {}) }) });
+          msg("");
+          onState(r.state);
+          return r.state;
+        } catch (e) {
+          if (e.status === 403) { msg("Wrong host key."); openControl(); return null; }
+          // network / server hiccup: host actions are idempotent, retry twice
+          if ((!e.status || e.status >= 500) && i < 2) { flash(`⏳ Retrying "${action}"…`); await new Promise((r) => setTimeout(r, 800 * (i + 1))); continue; }
+          msg(e.message); flash(`⚠️ ${e.message}`);
+          return null;
+        }
+      }
+    } finally { inFlight = false; }
   }
+  function flash(t) { $("ticker").innerHTML = `<span class="tick">${esc(t)}</span>`; tickerList = []; }
   async function poll() {
     try {
       const headers = hostKey ? { "x-host-key": hostKey } : {};

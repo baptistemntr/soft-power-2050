@@ -37,11 +37,20 @@
   const nowServer = () => Date.now() + offset;
 
   // ------------------------------------------------------------------ API
-  async function api(url, body) {
-    const res = await fetch(url, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store" } : { cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
-    return data;
+  const timeout = (ms) => (AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
+  // POSTs are idempotent (each writes its own key), so they are retried on network/server errors.
+  async function api(url, body, tries = body ? 3 : 1) {
+    for (let i = 0; ; i++) {
+      try {
+        const res = await fetch(url, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), cache: "no-store", signal: timeout(10000) } : { cache: "no-store", signal: timeout(8000) });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+        return data;
+      } catch (e) {
+        if (i + 1 >= tries || (e.status && e.status < 500)) throw e.status ? e : Object.assign(new Error("Network problem, try again"), { status: 0 });
+        await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+      }
+    }
   }
   async function poll() {
     try {

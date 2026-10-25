@@ -9,12 +9,12 @@ import { publicState, hostExtras, teamMembers, lobbyTeam } from "../lib/view.mjs
 
 async function reveal(st, game, t) {
   if (game.resolvedTurn === game.turn) return game; // idempotent
-  const players = await loadPlayers(st, game.gameId, { fresh: true });
+  const players = await loadPlayers(st, game, { fresh: true });
   const members = teamMembers(game, players);
   const g = { ...game, teams: { ...game.teams } };
   // a late player revived a bot team: it plays for real now
   for (const tm of TEAM_IDS) if (g.teams[tm].bot && members[tm].length) g.teams[tm] = { ...g.teams[tm], bot: false };
-  const inputs = await loadTurn(st, game.gameId, game.turn, { fresh: true });
+  const inputs = await loadTurn(st, game.gameId, game.turn, { fresh: true, all: true });
   const { game: out } = resolveTurn(g, inputs);
   return out;
 }
@@ -44,13 +44,13 @@ export default async (req) => {
       break;
     case "start": {
       if (game.phase !== "lobby") return fail(409, "The game has already started");
-      const players = await loadPlayers(st, game.gameId, { fresh: true });
+      const players = await loadPlayers(st, game, { fresh: true });
       next = startGame(game, players.map((p) => ({ ...p, team: lobbyTeam(game, p) })), t);
       break;
     }
     case "next":
       if (eff.phase === "lobby") {
-        const players = await loadPlayers(st, game.gameId, { fresh: true });
+        const players = await loadPlayers(st, game, { fresh: true });
         next = startGame(game, players.map((p) => ({ ...p, team: lobbyTeam(game, p) })), t);
       } else if (eff.phase === "validate") next = await reveal(st, game, t);
       else if (eff.phase !== "end") next = advance(game, t);
@@ -78,7 +78,7 @@ export default async (req) => {
     }
     case "balance": {
       if (game.phase !== "lobby") return fail(409, "Teams can only be balanced in the lobby");
-      const players = await loadPlayers(st, game.gameId, { fresh: true });
+      const players = await loadPlayers(st, game, { fresh: true });
       next = { ...game, moves: balanceTeams(players) };
       break;
     }
@@ -93,7 +93,7 @@ export default async (req) => {
 };
 
 async function respond(st, game, t) {
-  const players = await loadPlayers(st, game.gameId, { fresh: true });
+  const players = await loadPlayers(st, game, { fresh: true });
   const eff = effectivePhase(game, t);
   const turn = eff.phase === "decide" || eff.phase === "validate" ? await loadTurn(st, game.gameId, game.turn, { fresh: true }) : null;
   const ctx = { players, turn };

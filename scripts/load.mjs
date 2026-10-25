@@ -23,7 +23,7 @@ async function call(path, body) {
   stats.requests++;
   stats.latencies.push(Date.now() - t0);
   stats.byStatus[status] = (stats.byStatus[status] || 0) + 1;
-  if (status !== 200) { stats.errors++; if (errorSamples.length < 10) errorSamples.push(`${status} ${path} ${JSON.stringify(json)}`); }
+  if (status !== 200) { stats.errors++; if (status >= 500) stats.serverErrors = (stats.serverErrors || 0) + 1; if (errorSamples.length < 10) errorSamples.push(`${status} ${path} ${JSON.stringify(json)}`); }
   return { status, json };
 }
 const host = async (action, extra = {}) => (await call("/api/host", { key: KEY, action, ...extra })).json;
@@ -54,7 +54,8 @@ async function playerLoop(p) {
         const card = hand[Math.floor(Math.random() * hand.length)];
         const body = { pid: p.pid, role, card };
         if (priv.targets && priv.targets[card]) { const t = priv.targets[card]; body.target = t[Math.floor(Math.random() * t.length)]; }
-        const r = await call("/api/pick", body);
+        let r = await call("/api/pick", body);
+        for (let k = 0; k < 2 && r.status >= 500; k++) { await sleep(350 * (k + 1)); r = await call("/api/pick", body); } // same retry as the real client
         stats.picks++;
         if (r.status === 200) {
           const k = `${priv.me.team}/${role}`;
