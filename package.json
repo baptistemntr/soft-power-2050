@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Soft Power 2050 — classroom team game (Netlify Functions + Blobs, vanilla front)",
   "scripts": {
-    "test": "node --test tests/",
+    "test": "node --test \"tests/*.test.mjs\"",
     "simulate": "node scripts/simulate.mjs"
   },
   "dependencies": {
