@@ -127,6 +127,9 @@ try {
   await shot(hp, "host-02-roles");
   await shot(players[0].page, "player-phone-03-roles");
   await shot(players[10].page, "player-laptop-03-roles");
+  await players[1].page.click("#rulesBtn"); await sleep(300);
+  await shot(players[1].page, "player-phone-03b-rules");
+  await players[1].page.click("#closeRules");
 
   const roleOf = async (p) => p.page.evaluate(async () => {
     const s = await (await fetch(`/api/state?pid=${localStorage.getItem("sp_pid")}`)).json();
@@ -175,6 +178,18 @@ try {
       }
     }));
     await sleep(2500);
+    if (turn === 1) {
+      let appeals = 0;
+      for (const p of players) {
+        for (const r of ["eco", "ecolo", "voice"]) {
+          if (!p.me.roles.includes(r)) continue;
+          if (await p.page.locator(`[data-tab="${r}"]`).count()) await p.page.locator(`[data-tab="${r}"]`).click();
+          appeals += await p.page.locator(".gcard .appeals").count();
+        }
+      }
+      console.log(`cards showing "appeals to": ${appeals}`);
+      if (!appeals) issues.push('no card shows "appeals to"');
+    }
     // diplomats answer offers received
     await Promise.all(players.filter((p) => p.me.roles.includes("diplomat")).map(async (p) => {
       if (await p.page.locator('[data-tab="diplomat"]').count()) await p.page.locator('[data-tab="diplomat"]').click();
@@ -186,6 +201,7 @@ try {
     if (turn === 1) {
       await shot(hp, "host-04-decide");
       const phone = players.find((p) => !p.laptop && p.me.roles.length > 1) || players[0];
+      await phone.page.click(".inplay summary").catch(() => issues.push("in-play panel missing")); await sleep(300);
       await shot(phone.page, "player-phone-05-decide");
       await shot(players[10].page, "player-laptop-05-decide");
       const dip = players.find((p) => p.me.roles.includes("diplomat") && !p.laptop);

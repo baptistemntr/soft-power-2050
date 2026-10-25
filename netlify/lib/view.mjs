@@ -15,7 +15,7 @@ export function staticData() {
     gauges: GAUGES, gaugeInfo: GAUGE_INFO, roles: ROLES, cardRoles: CARD_ROLES, cards: CARDS,
     events: EVENTS, years: YEARS, turns: TURNS, text: TEXT, diplo: DIPLO_TYPES,
     langs: LANGS, defaultLang: DEFAULT_LANG, fr: CONTENT_FR, errorsFr: ERRORS_FR,
-    thresholds: { warn: C.PLANET_WARN, lose: C.PLANET_LOSE, instant: C.PLANET_INSTANT, strong: C.STRONG_AT, warming: C.WARMING },
+    thresholds: { warn: C.PLANET_WARN, lose: C.PLANET_LOSE, instant: C.PLANET_INSTANT, strong: C.STRONG_AT, warming: C.WARMING, owner: C.OWNER_MIN },
   };
 }
 

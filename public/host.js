@@ -242,7 +242,7 @@
       }
       case "roles":
         ov.hidden = false;
-        ov.innerHTML = `<div class="hero"><h1>${esc(t.tagline)}</h1><p>${esc(H().lookPhone)}</p><p>${I.fill(H().rolesPitch, { n: D.thresholds.lose })}</p></div>`;
+        ov.innerHTML = rulesHtml();
         break;
       case "event": {
         ov.hidden = false;
@@ -262,6 +262,14 @@
       default:
         ov.hidden = true;
     }
+  }
+  // "How to play" in 5 points, projected during the roles phase.
+  function rulesHtml() {
+    const r = T().rules, th = D.thresholds;
+    const vars = { owner: th.owner, warming: th.warming, lose: th.lose };
+    return `<div class="rules"><p class="tagline">${esc(T().tagline)}</p><h1>${esc(r.title)}</h1>
+      <ol>${r.items.map((it) => `<li>${esc(I.fill(it, vars))}</li>`).join("")}</ol>
+      <p class="motto">“${esc(r.motto)}”</p><p class="muted">${esc(H().lookPhone)}</p></div>`;
   }
   function needsOverlay() { return ["lobby", "roles", "event", "end"].includes(S.phase); }
 

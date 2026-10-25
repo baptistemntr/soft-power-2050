@@ -11,6 +11,22 @@ Stack : HTML/CSS/JS vanilla sans build (`public/`), Netlify Functions v2 (`netli
 
 ---
 
+## Les règles en 5 points (à dire à la classe)
+
+1. 🎯 **But** : avoir le plus de pays dans sa zone d'influence en 2050.
+2. 🃏 **Chaque tour**, chaque rôle choisit 1 carte, qui change les 4 jauges de son pays : 💰 croissance, 🌍 planète, 🙂 bonheur, 🤝 cohésion.
+3. 🗺️ **Les pays voisins ont un besoin** (👷 emplois, 🌊 climat, 😮‍💨 burn-out, 🎉 fête…). Y répondre (jauges hautes, cartes qui les « séduisent ») rapporte de l'influence : à 4 points, avec une avance nette, ils rejoignent la zone. L'influence s'use de 10 % par tour.
+4. 🔥 **Les cartes ⚠️ forcent l'influence** : à 3 🔥 les gains baissent, à 5 🔥 c'est le rejet culturel (moitié de l'influence perdue).
+5. 🌍 **Chaque pays perd 2 🌍 par tour.** Planète commune sous 17 à la fin (ou sous 5 en cours de partie) : tout le monde perd.
+
+*« Fais envie à tes voisins, ne les force pas, et ne laisse pas la planète couler. »*
+
+Dans le jeu :
+- l'écran hôte projette ces règles pendant la phase Rôles ;
+- chaque téléphone les affiche avec sa carte de rôle, puis à tout moment avec le bouton **❓ Règles** ;
+- pendant la décision, chaque carte indique les pays qu'elle **séduit** (« 💘 Séduit : 🇲🇽 Mexique, 🇨🇱 Chili ») ;
+- le panneau **🗺️ Tes pays en jeu** montre, pour chaque pays atteignable, l'influence de l'équipe (ex. 2,8/4) et qui est en tête.
+
 ## Langues
 
 Le jeu est en **français par défaut**, sur l'écran hôte comme chez les joueurs. L'anglais reste disponible :

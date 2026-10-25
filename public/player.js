@@ -28,6 +28,7 @@
   let offerDraft = { to: null, type: null };
   let joinDraft = { name: ls.get("sp_name") || "", team: "auto", editing: false };
   let busy = false;
+  let showRules = false;          // "How to play" sheet open
 
   const T = () => D.text;
   const U = () => D.text.ui;
@@ -115,11 +116,13 @@
     const tags = card.tags.length ? `<div class="tags">${esc(U().helps)}${colon()} ${card.tags.map((t) => `${D.needs[t].icon} ${esc(D.needs[t].label)}`).join(" · ")}</div>` : "";
     const warn = card.rejection > 0 ? `<div class="warn">⚠️ ${esc(T().backlash)} +${card.rejection}</div>` : card.rejection < 0 ? `<div class="tags">😌 ${esc(T().backlash)} ${card.rejection}</div>` : "";
     const extra = o.extra ? `<div class="tags">${o.extra}</div>` : "";
+    const fans = appealed(card);
+    const appeals = fans.length ? `<div class="appeals">💘 ${esc(U().appeals)}${colon()} ${fans.slice(0, 4).map(countryName).join(", ")}${fans.length > 4 ? ` +${fans.length - 4}` : ""}</div>` : "";
     const tag = o.button === false ? "div" : "button";
     return `<${tag} class="gcard${o.chosen ? " chosen" : ""}${o.vetoed ? " vetoed" : ""}" ${tag === "button" ? `type="button" data-card="${card.id}" aria-pressed="${o.chosen ? "true" : "false"}"` : ""}>
       <div class="head"><span class="emoji" aria-hidden="true">${card.emoji}</span><span class="name">${esc(card.name)}</span></div>
       <div class="flavor">“${esc(card.flavor)}”</div>
-      <div class="fx">${fxHtml(card)}</div>${tags}${warn}${extra}
+      <div class="fx">${fxHtml(card)}</div>${tags}${appeals}${warn}${extra}
     </${tag}>`;
   }
   function segs(v, color) {
@@ -133,6 +136,35 @@
     return `<div class="gauges two">${D.gauges.map((k) => `<div class="gauge" title="${esc(D.gaugeInfo[k].label)}"><span class="icon" aria-label="${esc(D.gaugeInfo[k].label)}">${D.gaugeInfo[k].icon}</span>${segs(st.gauges[k], color)}<span class="val">${st.gauges[k]}</span></div>`).join("")}</div>
       <div class="statline"><span>✨ ${esc(T().attract)} <b class="num">${st.attract.toFixed(1)}</b></span><span>🔥 ${esc(T().backlash)} <b class="num">${st.rejection}</b>/5</span><span>🗺️ <b class="num">${st.zone}</b></span></div>`;
   }
+  // Countries in play for my team whose need this card answers ("Appeals to").
+  function appealed(card) {
+    const p = S && S.private;
+    if (!p || !p.eligible || !card.tags.length) return [];
+    return p.eligible.filter((c) => card.tags.includes(COUNTRY()[c].need));
+  }
+  // Countries I can influence this turn, with my score vs the threshold.
+  function inPlayHtml() {
+    const me = S.private.me, th = D.thresholds, team = TEAM();
+    const rows = (S.private.eligible || []).map((c) => {
+      const inf = S.influence[c] || {};
+      const mine = inf[me.team] || 0;
+      const lead = Object.entries(inf).sort((a, b) => b[1] - a[1])[0];
+      return { c, mine, owner: S.owners[c], lead: lead && lead[1] > 0 ? lead[0] : null };
+    }).sort((a, b) => (b.owner === me.team) - (a.owner === me.team) || b.mine - a.mine);
+    const inZone = rows.filter((r) => r.owner === me.team).length;
+    const list = rows.map((r) => {
+      const n = D.needs[COUNTRY()[r.c].need];
+      const pct = Math.min(100, Math.round((r.mine / th.owner) * 100));
+      const status = r.owner === me.team ? `<b class="ok">✓ ${esc(U().inZone)}</b>`
+        : r.owner ? `${team[r.owner].flag} ${esc(team[r.owner].name)}`
+        : r.lead && r.lead !== me.team ? `${team[r.lead].flag} ${esc(U().leader)}` : "";
+      return `<li><span class="cn">${countryName(r.c)} <span class="muted" title="${esc(n.label)}">${n.icon}</span></span>
+        <span class="bar" role="img" aria-label="${r.mine.toFixed(1)} / ${th.owner}"><i style="width:${pct}%"></i></span>
+        <span class="num sc">${r.mine.toFixed(1)}/${th.owner}</span><span class="st small">${status}</span></li>`;
+    }).join("");
+    return `<details class="panel inplay"><summary>${esc(U().inPlay)} <span class="muted">(${esc(I.fill(U().inPlayCount, { n: inZone }))})</span></summary>
+      <p class="muted small">${esc(I.fill(U().inPlayHint, { owner: th.owner }))}</p><ul>${list}</ul></details>`;
+  }
   const flagName = (t) => `${TEAM()[t].flag} ${esc(TEAM()[t].name)}`;
   const countryName = (c) => `${COUNTRY()[c].flag} ${esc(COUNTRY()[c].name)}`;
   const myPick = (role) => pending[role] || (S.private.teamPicks || {})[role] || null;
@@ -142,7 +174,7 @@
     if (!D || !S) return;
     renderTop();
     const app = $("app");
-    const key = JSON.stringify([S.phase, S.locked, S.turn, S.gameId, S.private, relevantTeams(), pending, cultureDraft, presDraft, voiceDraft, offerDraft, tab, joinDraft.editing, S.headlines.length, S.planetAlert]);
+    const key = JSON.stringify([S.phase, S.locked, S.turn, S.gameId, S.private, relevantTeams(), pending, cultureDraft, presDraft, voiceDraft, offerDraft, tab, joinDraft.editing, S.headlines.length, S.planetAlert, showRules]);
     if (key === viewKey) return;
     // keep typing in the join form
     if (app.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
@@ -158,7 +190,7 @@
     const p = S.private;
     if (!p || !p.me || joinDraft.editing || S.phase === "lobby" || S.phase === "end" || S.phase === "reveal") return [S.teams, S.owners, S.totalPlayers];
     const mine = S.teams[p.me.team];
-    const out = [mine.gauges, mine.rejection, mine.zone, mine.rolesDone, mine.powerUsed, mine.strikeUsed];
+    const out = [mine.gauges, mine.rejection, mine.zone, mine.rolesDone, mine.powerUsed, mine.strikeUsed, S.owners];
     if (p.me.roles.includes("diplomat")) out.push(Object.fromEntries(Object.entries(S.teams).map(([t, v]) => [t, [v.gauges, v.rejection, v.zone, v.bot]])));
     if (cultureDraft || (presDraft && presDraft.power)) out.push(S.owners);
     return out;
@@ -191,7 +223,15 @@
 
   function view() {
     const t = T();
-    return phaseView(t) + langBar();
+    return (showRules ? rulesSheet() : "") + phaseView(t) + langBar();
+  }
+  function rulesList() {
+    const r = T().rules, th = D.thresholds;
+    return `<ol class="prules">${r.items.map((it) => `<li>${esc(I.fill(it, { owner: th.owner, warming: th.warming, lose: th.lose }))}</li>`).join("")}</ol><p class="motto">“${esc(r.motto)}”</p>`;
+  }
+  function rulesSheet() {
+    return `<section class="panel rulesheet" role="dialog" aria-label="${esc(T().rules.title)}"><h2>${esc(T().rules.title)}</h2>${rulesList()}
+      <button type="button" class="btn primary big" id="closeRules">${esc(U().close)}</button></section>`;
   }
   function phaseView(t) {
     if (S.phase === "nogame") return `<section class="panel center"><h1>${esc(t.title)}</h1><p class="muted">${esc(U().waitingHost)}</p></section>`;
@@ -209,7 +249,7 @@
     }
   }
   function langBar() {
-    return `<nav class="langbar" aria-label="${esc(U().switchLang)}">${R.langs.map((l) => `<button type="button" class="chipbtn${l === D.lang ? " on" : ""}" data-lang="${l}" aria-pressed="${l === D.lang}" lang="${l}">${l === "fr" ? "🇫🇷" : "🇬🇧"} ${esc(R.text[l].langName)}</button>`).join("")}</nav>`;
+    return `<nav class="langbar" aria-label="${esc(U().switchLang)}"><button type="button" class="chipbtn" id="rulesBtn" aria-expanded="${showRules}">${esc(U().rulesBtn)}</button>${R.langs.map((l) => `<button type="button" class="chipbtn${l === D.lang ? " on" : ""}" data-lang="${l}" aria-pressed="${l === D.lang}" lang="${l}">${l === "fr" ? "🇫🇷" : "🇬🇧"} ${esc(R.text[l].langName)}</button>`).join("")}</nav>`;
   }
 
   // ---- join
@@ -255,6 +295,7 @@
       <div class="panel center"><p class="eyebrow">${esc(me.roles.length > 1 ? U().yourRoles : U().yourRole)}</p><h1>${team.flag} ${esc(team.name)}</h1>
       ${me.roles.length > 1 ? `<p class="muted">${esc(I.fill(U().multiRoles, { n: me.roles.length }))}</p>` : ""}</div>
       <div class="rolecards">${me.roles.map(roleCard).join("")}</div>
+      <div class="panel"><h2>${esc(T().rules.title)}</h2>${rulesList()}</div>
       <div class="panel"><b>${pw.emoji} ${esc(I.fill(U().yourPower, { name: pw.name }))}</b><p class="muted">${esc(pw.desc)} ${esc(U().powerOnce)}</p>
       ${gaugesHtml(me.team)}</div>
     </section>`;
@@ -287,6 +328,7 @@
     }).join("")}</div>` : "";
     return `<section class="stack">
       ${eventBox(true)}
+      ${inPlayHtml()}
       <details class="panel mine"><summary>${flagName(me.team)} — ${esc(U().yourGauges)} <span class="muted">(${esc(fill(T().rolesReady, rc))})</span></summary>${gaugesHtml(me.team)}</details>
       ${tabs}
       <div class="tabpanel">${tab === "diplomat" ? diplomatView() : roleDecideView(tab)}</div>
@@ -453,6 +495,10 @@
     const ct = $("changeTeam");
     if (ct) ct.onclick = () => { joinDraft.editing = true; joinDraft.name = S.private.me.name; joinDraft.team = S.private.me.team; viewKey = ""; render(); };
 
+    const rb = $("rulesBtn");
+    if (rb) rb.onclick = () => { showRules = !showRules; render(); if (showRules) window.scrollTo(0, 0); };
+    const cr = $("closeRules");
+    if (cr) cr.onclick = () => { showRules = false; render(); };
     app.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
     app.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; cultureDraft = null; render(); }));
 
