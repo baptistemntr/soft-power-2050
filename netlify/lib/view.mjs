@@ -6,7 +6,7 @@ import {
 } from "./data.mjs";
 import {
   C, attract, effectivePhase, dealHand, eligible, cultureTargets, powerTargets, finalScores, awards,
-  leastPopulated, lateJoinRoles, botAcceptsOffer,
+  leastPopulated, lateJoinRoles, botAcceptsOffer, botChoices, objectiveDone,
 } from "./engine.mjs";
 
 export function staticData() {
@@ -15,7 +15,7 @@ export function staticData() {
     gauges: GAUGES, gaugeInfo: GAUGE_INFO, roles: ROLES, cardRoles: CARD_ROLES, cards: CARDS,
     events: EVENTS, years: YEARS, turns: TURNS, text: TEXT, diplo: DIPLO_TYPES,
     langs: LANGS, defaultLang: DEFAULT_LANG, fr: CONTENT_FR, errorsFr: ERRORS_FR,
-    thresholds: { warn: C.PLANET_WARN, lose: C.PLANET_LOSE, instant: C.PLANET_INSTANT, strong: C.STRONG_AT, warming: C.WARMING, owner: C.OWNER_MIN },
+    thresholds: { warn: C.PLANET_WARN, lose: C.PLANET_LOSE, instant: C.PLANET_INSTANT, strong: C.STRONG_AT, warming: C.WARMING, owner: C.OWNER_MIN, gap: C.OWNER_GAP, erosion: C.EROSION, objBonus: C.OBJ_BONUS },
   };
 }
 
@@ -115,7 +115,13 @@ export function publicState(game, ctx, now) {
     } : null,
     planetHistory: Object.values(game.history).map((h) => h.globalPlanet),
   };
-  if (eff.phase === "end") out.end = { scores: finalScores(game), awards: awards(game) };
+  if (eff.phase === "end") {
+    out.end = {
+      scores: finalScores(game), awards: awards(game),
+      objectives: Object.fromEntries(TEAM_IDS.map((t) => [t, game.teams[t].objective])),
+      replay: Object.values(game.history).map((h) => ({ year: h.year, map: h.map })),
+    };
+  }
   return out;
 }
 
@@ -131,6 +137,10 @@ export function privateState(game, ctx, player, now) {
   };
   const out = { me };
   const turn = game.turn;
+  // secret objective: visible to the team only (public at the end)
+  if (game.teams[team].objective) out.objective = { ...game.teams[team].objective, onTrack: objectiveDone(game, team) };
+  const hist = game.history[turn];
+  if ((eff.phase === "reveal" || eff.phase === "end") && hist && hist.why) out.why = hist.why[team] || {};
   const td = ctx.turn || { picks: {}, president: {}, voice: {}, offers: [], replies: {} };
   if ((eff.phase === "decide" || eff.phase === "validate") && turn > 0) {
     out.hands = {};
@@ -146,6 +156,8 @@ export function privateState(game, ctx, player, now) {
     out.voice = td.voice[team] || null;
     out.eligible = eligible(team, game.owners);
     if (roles.includes("president")) out.powerTargets = powerTargets(game, team);
+    // "⭐ Advice" during the first two turns: what a careful player would pick
+    if (turn <= 2) out.advice = Object.fromEntries(Object.entries(botChoices(game, team, "prudent", turn).picks).map(([r, p]) => [r, p.card]));
     if (roles.includes("diplomat")) {
       const sent = td.offers.filter((o) => o.from === team).sort((a, b) => (b.at || 0) - (a.at || 0))[0] || null;
       const status = (o) => {

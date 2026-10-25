@@ -249,6 +249,7 @@ try {
       }
     }
     await sleep(1500);
+    if (turn === 3) await shot(hp, "host-05b-validate-swing");
     if (turn === 2) {
       const pres = players.find((p) => p.me.roles.includes("president") && !p.laptop);
       if (pres) await shot(pres.page, "player-phone-08-validate-president");
@@ -271,19 +272,25 @@ try {
     if (turn === 3 && !Object.keys(st.reveal.strikes).length) issues.push("turn 3: no strike recorded");
     if (turn <= 2) { await shot(hp, `host-06-reveal-t${turn}`); }
     await Promise.all(players.map((p) => p.page.waitForSelector(".deltas", { timeout: 45000 })));
-    if (turn === 1) { await shot(players[0].page, "player-phone-10-reveal"); await shot(players[11].page, "player-laptop-10-reveal"); }
+    if (turn <= 2) { await sleep(500); await shot(players[0].page, `player-phone-10-reveal-t${turn}`); }
+    if (turn === 1) await shot(players[11].page, "player-laptop-10-reveal");
+    if (!(await players[0].page.locator(".why").count())) issues.push(`turn ${turn}: no "why" panel`);
     if (st.gameOver) { console.log("planet game over"); break; }
   }
 
   // end
   await hp.keyboard.press("ArrowRight");
-  await hp.waitForSelector(".podium", { timeout: 15000 });
-  await sleep(1200);
-  await shot(hp, "host-07-end-podium");
-  await hp.keyboard.press("ArrowRight"); await sleep(1600);
-  await shot(hp, "host-08-end-awards");
+  await hp.waitForSelector(".replay", { timeout: 15000 });
+  await sleep(1500 * 6 + 500);
+  await shot(hp, "host-07-end-replay");
+  await hp.keyboard.press("ArrowRight"); await hp.waitForSelector(".podium"); await sleep(1200);
+  await shot(hp, "host-08-end-podium");
+  await hp.keyboard.press("ArrowRight"); await hp.waitForSelector(".objrows"); await sleep(2200);
+  await shot(hp, "host-09-end-objectives");
+  await hp.keyboard.press("ArrowRight"); await hp.waitForSelector(".awards"); await sleep(1600);
+  await shot(hp, "host-10-end-awards");
   await hp.keyboard.press("ArrowRight"); await sleep(800);
-  await shot(hp, "host-09-end-debate");
+  await shot(hp, "host-11-end-debate");
   await Promise.all(players.map((p) => p.page.waitForSelector(".ranking", { timeout: 15000 })));
   await shot(players[0].page, "player-phone-11-end");
   await shot(players[10].page, "player-laptop-11-end");

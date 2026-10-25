@@ -10,6 +10,8 @@ export function simulate(n = 1000, seedPrefix = "sim") {
   let winnerZone = 0, gameOvers = 0, changes = 0, turns = 0, backlashes = 0, firstTurnChanges = 0;
   const planetEnd = [];
   const byStyle = { prudent: { games: 0, wins: 0 }, aggressive: { games: 0, wins: 0 } };
+  const objectives = {}; // id -> { drawn, done }
+  let decidedByObjective = 0;
 
   for (let i = 0; i < n; i++) {
     const r = rng(`${seedPrefix}:${i}`);
@@ -27,6 +29,14 @@ export function simulate(n = 1000, seedPrefix = "sim") {
     }
     const scores = E.finalScores(g);
     const w = scores[0].team;
+    const byZone = scores.slice().sort((a, b) => b.zone - a.zone || b.influence - a.influence)[0].team;
+    if (byZone !== w) decidedByObjective += 1;
+    for (const s of scores) {
+      const id = g.teams[s.team].objective.id;
+      objectives[id] = objectives[id] || { drawn: 0, done: 0 };
+      objectives[id].drawn += 1;
+      if (s.objective) objectives[id].done += 1;
+    }
     wins[w] += 1;
     winnerZone += scores[0].zone;
     if (g.gameOver) gameOvers += 1;
@@ -46,6 +56,8 @@ export function simulate(n = 1000, seedPrefix = "sim") {
     avgFirstTurnChanges: firstTurnChanges / n,
     avgBacklashPerGame: backlashes / n,
     avgPlanetEnd: planetEnd.reduce((a, b) => a + b, 0) / n,
+    objectiveRate: Object.fromEntries(Object.entries(objectives).map(([k, v]) => [k, v.done / v.drawn])),
+    decidedByObjective: decidedByObjective / n,
     styleWinRate: Object.fromEntries(Object.entries(byStyle).map(([k, v]) => [k, v.wins / Math.max(1, v.games)])),
   };
 }
@@ -74,6 +86,8 @@ if (isMain) {
   console.log(`Planet game over:           ${pct(res.gameOverRate)}   (avg final planet ${res.avgPlanetEnd.toFixed(1)}/50)`);
   console.log(`Owner changes per turn:     ${res.avgChangesPerTurn.toFixed(2)}   (turn 1: ${res.avgFirstTurnChanges.toFixed(2)})`);
   console.log(`Cultural backlashes/game:   ${res.avgBacklashPerGame.toFixed(2)}`);
+  console.log(`Secret objectives fulfilled: ${Object.entries(res.objectiveRate).map(([k, v]) => `${k} ${pct(v)}`).join(" · ")}`);
+  console.log(`Games where the objective changed the winner: ${pct(res.decidedByObjective)}`);
   console.log(`Win rate by bot style:      prudent ${pct(res.styleWinRate.prudent)} · aggressive ${pct(res.styleWinRate.aggressive)}`);
   console.log("\nTargets (§11):");
   for (const [k, ok] of Object.entries(checkTargets(res))) console.log(`  ${ok ? "✅" : "❌"} ${k}`);

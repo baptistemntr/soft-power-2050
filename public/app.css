@@ -412,3 +412,29 @@ table.world tr.me { background: color-mix(in srgb, var(--accent) 10%, transparen
 .inplay .bar i { display: block; height: 100%; background: var(--team, var(--accent)); }
 .inplay .st { grid-area: st; text-align: right; white-space: nowrap; }
 .inplay .ok { color: var(--ok); }
+
+/* player: advice, objective, why */
+.gcard.advised { border-color: color-mix(in srgb, var(--warn) 70%, var(--border)); }
+.gcard .advice { align-self: flex-start; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--text); }
+.objective { border-left: 6px solid var(--team, var(--accent)); }
+.objective .between { justify-content: space-between; }
+.objective .objtext { font-weight: 700; font-size: 16px; margin: 8px 0 4px; }
+.okchip { border-color: var(--ok); color: var(--ok); }
+.why ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.why .small { color: var(--muted); }
+
+/* host: swing countries, replay, secret objectives */
+.spmap .tile.swing .hex-base { stroke: #fff; stroke-width: 3; stroke-dasharray: 4 3; animation: sp-swing 1.4s ease-in-out infinite; }
+@keyframes sp-swing { 0%, 100% { stroke-opacity: .25; } 50% { stroke-opacity: 1; } }
+.swingdot { display: inline-block; width: 1.4vh; height: 1.4vh; border-radius: 50%; border: 2px dashed #fff; vertical-align: middle; animation: sp-swing 1.4s ease-in-out infinite; }
+.map-note { font-size: 1.6vh; padding: .6vh .9vw; }
+.replay { pointer-events: none; align-self: start; justify-self: end; text-align: right; margin: 1vh 1vw; background: color-mix(in srgb, var(--surface) 88%, transparent); border: 1px solid var(--border); border-radius: 16px; padding: 1.2vh 1.4vw; display: grid; gap: .3vh; }
+.replay .ryear { font-family: var(--display); font-size: 6.5vh; font-weight: 700; line-height: 1; color: var(--swe); }
+.replay .rtitle { font-size: 2vh; font-weight: 600; }
+.replay .hint { font-size: 1.5vh; color: var(--muted); }
+.step .score { font-family: var(--display); font-size: 4vh; font-weight: 700; line-height: 1; }
+.objrows { display: grid; gap: 1.2vh; width: 86%; }
+.objrow { display: grid; grid-template-columns: 5vh 14vw 1fr 8vw; align-items: center; gap: 1vw; text-align: left; background: var(--surface); border: 1px solid var(--border); border-left: .6vw solid var(--team); border-radius: 14px; padding: 1.4vh 1.2vw; font-size: 2.2vh; animation: sp-tick .5s ease both; }
+.objrow .f { font-size: 4vh; } .objrow .n { font-family: var(--display); font-weight: 700; }
+.objrow .r { font-family: var(--display); font-weight: 700; font-size: 3vh; text-align: right; }
+.objrow.ok .r { color: var(--ok); } .objrow.ko .r { color: var(--danger); } .objrow.ko { opacity: .75; }

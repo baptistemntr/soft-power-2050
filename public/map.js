@@ -185,6 +185,8 @@
         if (sel && sel.has(id)) { t.g.setAttribute("tabindex", "0"); t.g.setAttribute("role", "button"); t.g.setAttribute("aria-label", M.targetAria.replace("{name}", t.country.name)); }
         else { t.g.removeAttribute("role"); t.g.removeAttribute("aria-label"); t.g.setAttribute("tabindex", "-1"); }
       }
+      const swing = new Set(o.swing || []);
+      for (const [id, t] of Object.entries(tiles)) t.g.classList.toggle("swing", swing.has(id));
       if (o.highlightTeam) for (const [id, t] of Object.entries(tiles)) t.g.classList.toggle("mine", id === o.highlightTeam);
       // zoom (mini-map): fit the focus countries
       if (o.focus && o.focus.length) {
@@ -234,7 +236,8 @@
         rows = sc.map(([t, v]) => `<div class="tip-row"><span>${TEAM[t].flag} ${esc(TEAM[t].name)}</span><b>${v.toFixed(1)}</b></div>`).join("") || `<div class="muted">${esc(M.noInfluence)}</div>`;
       }
       const owner = current && current.owners && current.owners[id];
-      return `<strong>${c.flag} ${esc(c.name)}</strong><div>${n.icon} ${esc(n.label)}</div>` +
+      const swingLine = tiles[id].g.classList.contains("swing") && M.swing ? `<div><b>${esc(M.swing)}</b></div>` : "";
+      return `<strong>${c.flag} ${esc(c.name)}</strong><div>${n.icon} ${esc(n.label)}</div>${swingLine}` +
         (owner ? `<div class="muted">${esc(M.looksTo)} ${TEAM[owner].flag} ${esc(TEAM[owner].name)}</div>` : `<div class="muted">${esc(M.ownWay)}</div>`) + rows;
     }
     function showTip(id, e, sticky) {

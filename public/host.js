@@ -21,7 +21,9 @@
   let animatedTurn = Number(sessionStorage.getItem("sp_animated") || 0);
   let animating = false;
   let revealDone = false;
-  let endSlide = 0;
+  let endSlide = 0;                 // 0 replay · 1 podium · 2 secret objectives · 3 awards · 4 debate
+  const LAST_SLIDE = 4;
+  let replayFor = "", replayFrame = -1, replayTimer = null;
   let tickerIdx = 0, tickerList = [], tickerTimer = null;
   let lastRendered = "";
   let resetArmed = 0;
@@ -87,6 +89,7 @@
     S = s;
     if (prev && prev.gameId !== s.gameId) { animatedTurn = 0; sessionStorage.setItem("sp_animated", "0"); endSlide = 0; }
     if (!prev || prev.phase !== s.phase || prev.turn !== s.turn) { revealDone = false; if (s.phase !== "end") endSlide = 0; }
+    if (prev && s.phase === "event" && (prev.phase !== "event" || prev.turn !== s.turn)) sfx("news");
     render();
   }
 
@@ -100,7 +103,8 @@
     if (S.phase === "nogame") return renderNoGame();
     if (!animating) {
       if (S.phase === "reveal" && S.resolvedTurn === S.turn && animatedTurn !== S.turn) startReveal();
-      else map.update(S, {});
+      else if (S.phase === "end" && endSlide === 0 && S.end) startReplay();
+      else map.update(S, { swing: swingCountries() });
     }
     renderOverlay();
     renderTicker();
@@ -121,6 +125,8 @@
       const el = $("timer"), bar = $("progress");
       if (S.phaseEndsAt && ["decide", "validate", "event", "roles"].includes(S.phase) && !(S.phase === "validate" && S.locked)) {
         const left = Math.max(0, Math.ceil((S.phaseEndsAt - nowServer()) / 1000));
+        if ((S.phase === "decide" || S.phase === "validate") && left <= 5 && left > 0 && left !== tickTimer.last) sfx("tick");
+        tickTimer.last = left;
         const total = S.phase === "decide" ? S.decideSeconds : 30;
         el.textContent = `${String(Math.floor(left / 60)).padStart(1, "0")}:${String(left % 60).padStart(2, "0")}`;
         el.classList.toggle("urgent", left <= 10 && (S.phase === "decide" || S.phase === "validate"));
@@ -217,7 +223,7 @@
     const key = `${D.lang}|${S.phase}|${S.turn}|${S.phase === "lobby" ? JSON.stringify(S.teams) + S.totalPlayers : ""}|${revealDone}|${endSlide}|${S.gameOver}`;
     if (key === lastRendered && !ov.hidden === needsOverlay()) return;
     lastRendered = key;
-    ov.className = "overlay";
+    ov.className = S.phase === "end" && endSlide === 0 ? "overlay light" : "overlay";
     switch (S.phase) {
       case "lobby": {
         ov.hidden = false;
@@ -291,20 +297,79 @@
     const lost = S.gameOver;
     const verdict = `<div class="verdict ${lost ? "lost" : "ok"}">${esc(lost ? t.gameOver : t.planetSurvived)}<small>${esc(I.fill(H().commonPlanet, { v: S.globalPlanet }))}</small></div>`;
     if (endSlide === 0) {
-      const top = e.scores.slice(0, 3);
-      const order = [top[1], top[0], top[2]].filter(Boolean);
-      const steps = order.map((s) => `<div class="step t-${s.team} p${s.rank}"><div class="rank">${["", "🥇", "🥈", "🥉"][s.rank]}</div><div class="f">${team[s.team].flag}</div><div class="n">${esc(team[s.team].name)}</div><div class="s">${esc(I.fill(H().countries, { n: s.zone }))} · ✨ ${s.attract}</div></div>`).join("");
-      const others = e.scores.slice(3).map((s) => `${s.rank}. ${team[s.team].flag} ${esc(team[s.team].name)} (${s.zone})`).join(" · ");
-      return `<div class="end"><h2>2050 — ${esc(t.phases.end)}</h2>${verdict}<div class="podium ${lost ? "grey" : ""}">${steps}</div><div class="others">${others}</div><div class="hint">${esc(H().toAwards)}</div></div>`;
+      const f = (e.replay || [])[Math.max(0, replayFrame)];
+      return `<div class="replay"><div class="ryear num">${f ? f.year : 2030}</div><div class="rtitle">${esc(t.replay)}</div><div class="hint">${esc(H().toPodium)}</div></div>`;
     }
     if (endSlide === 1) {
+      const top = e.scores.slice(0, 3);
+      const order = [top[1], top[0], top[2]].filter(Boolean);
+      const steps = order.map((s) => `<div class="step t-${s.team} p${s.rank}"><div class="rank">${["", "🥇", "🥈", "🥉"][s.rank]}</div><div class="f">${team[s.team].flag}</div><div class="n">${esc(team[s.team].name)}</div><div class="score num">${s.score}</div><div class="s">${esc(I.fill(H().countries, { n: s.zone }))}${s.bonus ? ` + 🕵️ ${s.bonus}` : ""} · ✨ ${s.attract}</div></div>`).join("");
+      const others = e.scores.slice(3).map((s) => `${s.rank}. ${team[s.team].flag} ${esc(team[s.team].name)} (${s.score})`).join(" · ");
+      return `<div class="end"><h2>2050 — ${esc(t.phases.end)}</h2>${verdict}<div class="podium ${lost ? "grey" : ""}">${steps}</div><div class="others">${others}</div><div class="hint">${esc(H().toObjectives)}</div></div>`;
+    }
+    if (endSlide === 2) {
+      const rows = e.scores.map((s, i) => {
+        const o = e.objectives[s.team];
+        const c = o && o.country ? D.countries.find((x) => x.id === o.country) : null;
+        const text = o ? I.fill(t.objectives[o.id], { country: c ? `${c.flag} ${c.name}` : "" }) : "";
+        return `<div class="objrow t-${s.team} ${s.objective ? "ok" : "ko"}" style="animation-delay:${i * 0.3}s"><span class="f">${team[s.team].flag}</span><span class="n">${esc(team[s.team].name)}</span><span class="o">${esc(text)}</span><span class="r">${s.objective ? `✓ +${s.bonus}` : "✗"}</span></div>`;
+      }).join("");
+      return `<div class="end"><h2>${esc(H().objectivesTitle)}</h2><div class="objrows">${rows}</div><div class="hint">${esc(H().toAwards)}</div></div>`;
+    }
+    if (endSlide === 3) {
       const cards = e.awards.map((a, i) => `<div class="award t-${a.team}" style="animation-delay:${i * 0.25}s"><div class="t">${esc(t.awards[a.key])}</div><div class="w">${team[a.team].flag} ${esc(team[a.team].name)}</div><div class="v">${esc(a.card ? `${D.cards.find((c) => c.id === a.card).emoji} ${D.cards.find((c) => c.id === a.card).name}` : a.value)}</div></div>`).join("");
       return `<div class="end"><h2>${esc(H().awardsTitle)}</h2><div class="awards">${cards}</div><div class="hint">${esc(H().toDebate)}</div></div>`;
     }
     return `<div class="end"><div class="muted" style="font-size:2.4vh">${esc(H().timeToDebate)}</div><div class="debate">${esc(t.debate)}</div>${verdict}</div>`;
   }
 
-  function renderNote() { $("mapNote").hidden = true; }
+  // Legend for the countries that may switch next turn (pulsing on the map).
+  function renderNote() {
+    const n = $("mapNote");
+    const on = !animating && swingCountries().length > 0;
+    n.hidden = !on;
+    if (on) n.innerHTML = `<span class="swingdot" aria-hidden="true"></span> ${esc(H().swing)}`;
+  }
+
+  // Countries whose zone could change next turn: a challenger, after erosion and a typical gain,
+  // would pass the threshold and the (eroded, maintained) owner.
+  function swingCountries() {
+    if (!S || !["event", "decide", "validate"].includes(S.phase) || !S.influence) return [];
+    const th = D.thresholds;
+    return Object.keys(S.owners).filter((c) => {
+      const inf = S.influence[c] || {};
+      const o = S.owners[c];
+      const best = Object.entries(inf).filter(([t]) => t !== o).sort((a, b) => b[1] - a[1])[0];
+      if (!best || best[1] <= 0) return false;
+      const challenger = best[1] * th.erosion + 2.5;
+      const holder = o ? inf[o] * th.erosion + 1.5 : 0;
+      return challenger >= th.owner && challenger > holder + th.gap;
+    });
+  }
+
+  // ------------------------------------------------------------------ end: replay 2030 → 2050
+  function frameState(f) {
+    const owners = {}, influence = {};
+    for (const [c, [o, strong]] of Object.entries(f.map)) {
+      owners[c] = o;
+      influence[c] = Object.fromEntries(D.teams.map((t) => [t.id, t.id === o ? (strong ? 10 : 5) : 0]));
+    }
+    return { owners, influence, teams: S.teams };
+  }
+  function startReplay() {
+    if (replayFor === S.gameId) return;
+    replayFor = S.gameId;
+    const frames = S.end.replay || [];
+    replayFrame = 0;
+    const step = () => {
+      if (!S || S.phase !== "end" || endSlide !== 0 || !frames.length) return;
+      map.update(frameState(frames[replayFrame]), {});
+      sfx("tick");
+      lastRendered = ""; renderOverlay();
+      if (replayFrame < frames.length - 1) { replayFrame++; replayTimer = setTimeout(step, 1500); }
+    };
+    step();
+  }
 
   // ------------------------------------------------------------------ ticker
   function renderTicker() {
@@ -337,8 +402,10 @@
     const changes = S.changes || [];
     map.update(S, { animateFrom: changes });
     renderTicker();
+    renderNote();
+    sfx("reveal");
     await new Promise((r) => setTimeout(r, 600));
-    await map.animate(changes, { onStep: (_, i) => showTick(i) });
+    await map.animate(changes, { onStep: (ch, i) => { showTick(i); if (!ch.tier) sfx("switch"); } });
     animating = false;
     revealDone = true;
     map.update(S, {});
@@ -376,7 +443,7 @@
       case "decide": return h.closeDecisions;
       case "validate": return h.reveal;
       case "reveal": return S.turn >= S.turns || S.gameOver ? h.finalVerdict : h.nextTurn;
-      case "end": return endSlide < 2 ? h.nextSlide : "—";
+      case "end": return endSlide < LAST_SLIDE ? h.nextSlide : "—";
       default: return h.next;
     }
   }
@@ -384,7 +451,15 @@
     if (!S) return;
     if (S.phase === "nogame") return hostAction("check");
     if (S.phase === "reveal" && animating) return; // let the animation finish
-    if (S.phase === "end") { if (endSlide < 2) { endSlide++; lastRendered = ""; render(); } return; }
+    if (S.phase === "end") {
+      if (endSlide < LAST_SLIDE) {
+        endSlide++;
+        clearTimeout(replayTimer);
+        if (endSlide === 1) sfx(S.gameOver ? "lose" : "win");
+        lastRendered = ""; render();
+      }
+      return;
+    }
     if (S.phase === "decide") return hostAction("close");
     return hostAction("next");
   }
@@ -402,6 +477,38 @@
       hostAction("reset");
       msg(H().resetDone);
     } else { resetArmed = t; msg(H().pressAgain); }
+  }
+
+  // ------------------------------------------------------------------ sounds (host screen only, synthesised)
+  let soundOn = store.get("sp_sound") !== "0";
+  let audio = null;
+  function tone(freq, start, dur, type = "triangle", vol = 0.18, endFreq = null) {
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, start);
+    if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, start + dur);
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(vol, start + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.connect(g).connect(audio.destination);
+    o.start(start); o.stop(start + dur + 0.05);
+  }
+  function sfx(name) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === "suspended") audio.resume();
+      const t = audio.currentTime + 0.01;
+      switch (name) {
+        case "news": [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.12, 0.22)); break;          // "flash info"
+        case "reveal": tone(110, t, 0.6, "sine", 0.3, 70); break;                                             // low boom
+        case "switch": tone(880, t, 0.16, "triangle", 0.15, 1320); break;                                     // a country switches
+        case "tick": tone(1200, t, 0.05, "square", 0.05); break;                                              // countdown / replay
+        case "win": [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.14, i === 4 ? 0.7 : 0.2, "triangle", 0.2)); break;
+        case "lose": [392, 370, 349, 294].forEach((f, i) => tone(f, t + i * 0.32, i === 3 ? 0.9 : 0.3, "sawtooth", 0.08)); break;
+        default: break;
+      }
+    } catch { /* no audio available */ }
   }
 
   // Language: French by default, switch in the control panel or with the L key.
@@ -431,6 +538,11 @@
     $("btnReset").ondblclick = () => { resetArmed = Date.now(); reset(); };
     $("btnReset").onclick = () => msg(H().dblClick);
     $("langSelect").onchange = () => setLang($("langSelect").value);
+    $("soundToggle").checked = soundOn;
+    $("soundToggle").onchange = () => { soundOn = $("soundToggle").checked; store.set("sp_sound", soundOn ? "1" : "0"); if (soundOn) sfx("switch"); };
+    const unlock = () => { if (audio && audio.state === "suspended") audio.resume(); };
+    document.addEventListener("pointerdown", unlock);
+    document.addEventListener("keydown", unlock);
     document.addEventListener("keydown", (e) => {
       if (e.target.closest("input, select, textarea")) return;
       if (e.key === "ArrowRight" || e.key === " ") { e.preventDefault(); next(); }

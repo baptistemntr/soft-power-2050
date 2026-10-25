@@ -2,6 +2,7 @@
 import {
   GAUGES, GAUGE_INFO, NEEDS, TEAMS, TEAM_IDS, COUNTRY, COUNTRIES, FREE_COUNTRIES, NEIGHBORS,
   ROLE_IDS, CARD_ROLES, CARD, DECKS, EVENTS, FIRST_EVENT, LAST_EVENT, YEARS, TURNS, TEXT, DIPLO_TYPES, LANGS, CONTENT_FR,
+  OBJECTIVES, OBJECTIVE_COUNTRIES,
 } from "./data.mjs";
 import { rng, shuffle } from "./rng.mjs";
 
@@ -21,6 +22,7 @@ export const C = {
   PASSIVE_DIV: 5,        // passive = attract / PASSIVE_DIV
   MATCH_DIV: 5,          // match = gauge / MATCH_DIV
   STRONG_AT: 7,          // influence shown at full opacity on the map
+  OBJ_BONUS: 2,          // points of a fulfilled secret objective in the final ranking
   WARMING: 2,            // "business as usual": every team loses this much 🌍 each turn (added rule, see README)
 };
 
@@ -61,6 +63,15 @@ export function initGame({ gameId, now = 0, decideSeconds = 150 }) {
       played: Object.fromEntries(CARD_ROLES.map((r) => [r, []])),
     };
   }
+  // secret objectives (one per team, seeded)
+  const orng = rng(`${gameId}:obj`);
+  const draw = shuffle(OBJECTIVES, orng);
+  TEAMS.forEach((t, i) => {
+    const id = draw[i % draw.length];
+    teams[t.id].objective = id === "country"
+      ? { id, country: OBJECTIVE_COUNTRIES[t.id][Math.floor(orng() * OBJECTIVE_COUNTRIES[t.id].length)] }
+      : { id };
+  });
   const influence = {}, owners = {};
   for (const c of FREE_COUNTRIES) {
     influence[c] = Object.fromEntries(TEAM_IDS.map((t) => [t, 0]));
@@ -81,6 +92,7 @@ export function initGame({ gameId, now = 0, decideSeconds = 150 }) {
       deals: Object.fromEntries(TEAM_IDS.map((t) => [t, 0])),
       backlashes: Object.fromEntries(TEAM_IDS.map((t) => [t, 0])),
       rejGained: Object.fromEntries(TEAM_IDS.map((t) => [t, 0])),
+      maxRej: Object.fromEntries(TEAM_IDS.map((t) => [t, 0])),
       cardInfluence: {}, // "team:cardId" -> influence contributed
     },
   };
@@ -607,6 +619,8 @@ export function resolveTurn(game, inputs = {}) {
     const sk = `${t}:${cardId}`;
     g.stats.cardInfluence[sk] = round2((g.stats.cardInfluence[sk] || 0) + amount);
   };
+  const why = Object.fromEntries(TEAM_IDS.map((t) => [t, {}])); // where each team's influence came from
+  const w = (t, c) => (why[t][c] = why[t][c] || { a: 0, n: 0, c: {}, p: 0, d: 0 });
   for (const t of TEAM_IDS) {
     for (const c of elig[t]) {
       const need = COUNTRY[c].need;
@@ -621,6 +635,9 @@ export function resolveTurn(game, inputs = {}) {
       if (ev === "ev_summit") mult *= 1.5;
       g.influence[c][t] += (passive + match + cardMatch) * mult;
       matching.slice(0, 2).forEach((id) => credit(c, t, id, mult));
+      const e = w(t, c);
+      e.a += passive * mult; e.n += match * mult;
+      matching.slice(0, 2).forEach((id) => { e.c[id] = (e.c[id] || 0) + mult; });
     }
   }
 
@@ -632,27 +649,31 @@ export function resolveTurn(game, inputs = {}) {
       const v = cultureInfluence(cid, targets[t], ev, powers[t] && powers[t].id === "artdevivre");
       bump(targets[t], t, v);
       credit(targets[t], t, cid, v);
+      const e = w(t, targets[t]); e.c[cid] = (e.c[cid] || 0) + v;
     }
     if (played[t].president === "pre_un") {
-      for (const c of FREE_COUNTRIES) if (startOwners[c] === t) { bump(c, t, 1); credit(c, t, "pre_un", 1); }
+      for (const c of FREE_COUNTRIES) if (startOwners[c] === t) { bump(c, t, 1); credit(c, t, "pre_un", 1); const e = w(t, c); e.c.pre_un = (e.c.pre_un || 0) + 1; }
     }
     const pw = powers[t];
     if (pw) {
-      if (pw.id === "hollywood") pw.targets.forEach((c) => bump(c, t, 4));
-      if (pw.id === "silkroads") pw.targets.forEach((c) => bump(c, t, 2));
+      const pb = (c, v) => { bump(c, t, v); w(t, c).p += v; };
+      if (pw.id === "hollywood") pw.targets.forEach((c) => pb(c, 4));
+      if (pw.id === "silkroads") pw.targets.forEach((c) => pb(c, 2));
       if (pw.id === "carnaval") {
-        for (const c of FREE_COUNTRIES) if (COUNTRY[c].need === "fete") bump(c, t, 3);
-        for (const c of elig[t]) bump(c, t, 1);
+        for (const c of FREE_COUNTRIES) if (COUNTRY[c].need === "fete") pb(c, 3);
+        for (const c of elig[t]) pb(c, 1);
       }
     }
   }
-  for (const ex of cultureExchanges) for (const t of ex.pair) for (const c of ex.countries) bump(c, t, 1);
+  for (const ex of cultureExchanges) for (const t of ex.pair) for (const c of ex.countries) { bump(c, t, 1); w(t, c).d += 1; }
   for (const c of FREE_COUNTRIES) for (const t of TEAM_IDS) g.influence[c][t] = round2(g.influence[c][t]);
 
   // 14. Owners
   g.owners = computeOwners(g.influence, startOwners);
 
-  // 15. Cultural backlash
+  // 15. Cultural backlash (remember the peak backlash for the "calm" objective first)
+  g.stats.maxRej = g.stats.maxRej || {};
+  for (const t of TEAM_IDS) g.stats.maxRej[t] = Math.max(g.stats.maxRej[t] || 0, g.teams[t].rejection);
   const backlash = [];
   for (const t of TEAM_IDS) {
     if (g.teams[t].rejection >= C.BACKLASH_AT) {
@@ -737,9 +758,17 @@ export function resolveTurn(game, inputs = {}) {
     deltas[t].rejection = g.teams[t].rejection - startRej[t];
     for (const role of CARD_ROLES) if (played[t][role]) g.teams[t].played[role].push({ id: played[t][role], turn });
   }
+  for (const t of TEAM_IDS) for (const e of Object.values(why[t])) {
+    e.a = round1(e.a); e.n = round1(e.n); e.p = round1(e.p);
+    for (const k of Object.keys(e.c)) e.c[k] = round1(e.c[k]);
+  }
+  const map = Object.fromEntries(FREE_COUNTRIES.map((c) => {
+    const o = g.owners[c];
+    return [c, [o, o && g.influence[c][o] >= C.STRONG_AT ? 1 : 0]];
+  }));
   g.history[turn] = {
     event: ev, year, played, targets, vetoes, strikes, missing, pacts, powers, backlash, deltas,
-    changes, headlines, globalPlanet: g.globalPlanet,
+    changes, headlines, globalPlanet: g.globalPlanet, why, map,
     ownersChanged: changes.filter((c) => !c.tier).length,
   };
   g.headlines = headlines;
@@ -753,14 +782,34 @@ export function resolveTurn(game, inputs = {}) {
 // ---------------------------------------------------------------------------
 // End of game (§7, §14)
 // ---------------------------------------------------------------------------
+// Is the team's secret objective fulfilled in the current state?
+export function objectiveDone(game, team) {
+  const o = game.teams[team].objective;
+  if (!o) return false;
+  const gg = game.teams[team].gauges;
+  switch (o.id) {
+    case "country": return game.owners[o.country] === team;
+    case "cohesion7": return gg.cohesion >= 7;
+    case "planet7": return gg.planet >= 7;
+    case "eco7": return gg.eco >= 7;
+    case "calm": return ((game.stats.maxRej || {})[team] || 0) <= 2;
+    case "attractive": return TEAM_IDS.every((u) => attract(game.teams[u].gauges) <= attract(gg));
+    default: return false;
+  }
+}
+
+// Final ranking: countries in the zone + secret objective bonus; ties -> zone, influence, attractiveness.
 export function finalScores(game) {
-  const rows = TEAM_IDS.map((t) => ({
-    team: t,
-    zone: FREE_COUNTRIES.filter((c) => game.owners[c] === t).length,
-    influence: round1(FREE_COUNTRIES.reduce((s, c) => s + (game.influence[c][t] || 0), 0)),
-    attract: attract(game.teams[t].gauges),
-  }));
-  rows.sort((a, b) => b.zone - a.zone || b.influence - a.influence || b.attract - a.attract || (a.team < b.team ? -1 : 1));
+  const rows = TEAM_IDS.map((t) => {
+    const zone = FREE_COUNTRIES.filter((c) => game.owners[c] === t).length;
+    const objective = objectiveDone(game, t);
+    return {
+      team: t, zone, objective, bonus: objective ? C.OBJ_BONUS : 0, score: zone + (objective ? C.OBJ_BONUS : 0),
+      influence: round1(FREE_COUNTRIES.reduce((s, c) => s + (game.influence[c][t] || 0), 0)),
+      attract: attract(game.teams[t].gauges),
+    };
+  });
+  rows.sort((a, b) => b.score - a.score || b.zone - a.zone || b.influence - a.influence || b.attract - a.attract || (a.team < b.team ? -1 : 1));
   rows.forEach((r, i) => { r.rank = i + 1; });
   return rows;
 }

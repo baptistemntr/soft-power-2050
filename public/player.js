@@ -34,6 +34,8 @@
   const U = () => D.text.ui;
   const tr = (v) => I.pick(v, D.lang);
   const colon = () => (D.lang === "fr" ? " :" : ":");
+  const num = (v) => { const t = (Math.round(v * 10) / 10).toFixed(1); return D.lang === "fr" ? t.replace(".", ",") : t; };
+  const sign = (v) => `${v >= 0 ? "+" : "−"}${num(Math.abs(v))}`;
   const EV = () => (S.event ? D.events.find((e) => e.id === S.event.id) : null);
   const TEAM = () => Object.fromEntries(D.teams.map((t) => [t.id, t]));
   const CARD = () => Object.fromEntries(D.cards.map((c) => [c.id, c]));
@@ -119,7 +121,9 @@
     const fans = appealed(card);
     const appeals = fans.length ? `<div class="appeals">💘 ${esc(U().appeals)}${colon()} ${fans.slice(0, 4).map(countryName).join(", ")}${fans.length > 4 ? ` +${fans.length - 4}` : ""}</div>` : "";
     const tag = o.button === false ? "div" : "button";
-    return `<${tag} class="gcard${o.chosen ? " chosen" : ""}${o.vetoed ? " vetoed" : ""}" ${tag === "button" ? `type="button" data-card="${card.id}" aria-pressed="${o.chosen ? "true" : "false"}"` : ""}>
+    const advised = o.button !== false && S && S.private && S.private.advice && S.private.advice[card.role] === card.id;
+    return `<${tag} class="gcard${o.chosen ? " chosen" : ""}${o.vetoed ? " vetoed" : ""}${advised ? " advised" : ""}" ${tag === "button" ? `type="button" data-card="${card.id}" aria-pressed="${o.chosen ? "true" : "false"}"` : ""}>
+      ${advised ? `<span class="advice">${esc(T().advice)}</span>` : ""}
       <div class="head"><span class="emoji" aria-hidden="true">${card.emoji}</span><span class="name">${esc(card.name)}</span></div>
       <div class="flavor">“${esc(card.flavor)}”</div>
       <div class="fx">${fxHtml(card)}</div>${tags}${appeals}${warn}${extra}
@@ -135,6 +139,47 @@
     const color = TEAM()[team].color;
     return `<div class="gauges two">${D.gauges.map((k) => `<div class="gauge" title="${esc(D.gaugeInfo[k].label)}"><span class="icon" aria-label="${esc(D.gaugeInfo[k].label)}">${D.gaugeInfo[k].icon}</span>${segs(st.gauges[k], color)}<span class="val">${st.gauges[k]}</span></div>`).join("")}</div>
       <div class="statline"><span>✨ ${esc(T().attract)} <b class="num">${st.attract.toFixed(1)}</b></span><span>🔥 ${esc(T().backlash)} <b class="num">${st.rejection}</b>/5</span><span>🗺️ <b class="num">${st.zone}</b></span></div>`;
+  }
+  // Secret objective of my team (onTrack = fulfilled in the current state).
+  function objectiveText(o) { return I.fill(T().objectives[o.id], { country: o.country ? countryName(o.country) : "" }); }
+  function objectiveHtml(final) {
+    const o = S.private && S.private.objective;
+    if (!o) return "";
+    const ok = final ? (S.end && S.end.scores.find((x) => x.team === S.private.me.team).objective) : o.onTrack;
+    const st = final ? (ok ? T().objective.done : T().objective.missed) : (ok ? T().objective.onTrack : T().objective.notYet);
+    return `<div class="panel objective"><div class="row between"><b>${esc(T().objective.title)}</b><span class="chip ${ok ? "okchip" : ""}">${esc(st)}</span></div>
+      <p class="objtext">${objectiveText(o)}</p><p class="muted small">${esc(I.fill(T().objective.hint, { n: D.thresholds.objBonus }))}</p></div>`;
+  }
+  // "Why?" after a reveal: where my influence came from for the countries that moved.
+  function whyHtml() {
+    const me = S.private.me.team, why = S.private.why || {}, W = T().why, team = TEAM();
+    const parts = (c) => {
+      const e = why[c];
+      if (!e) return "";
+      const out = [];
+      if (e.a) out.push(`${esc(W.attract)} ${sign(e.a)}`);
+      if (e.n) out.push(`${esc(W.need)} ${D.needs[COUNTRY()[c].need].icon} ${sign(e.n)}`);
+      for (const [id, v] of Object.entries(e.c || {})) out.push(`${esc(CARD()[id].name)} ${sign(v)}`);
+      if (e.p) out.push(`${esc(team[me].power.name)} ${sign(e.p)}`);
+      if (e.d) out.push(`${esc(W.deal)} ${sign(e.d)}`);
+      return out.join(" · ");
+    };
+    const lines = [];
+    if (S.reveal && S.reveal.backlash.includes(me)) lines.push(`<li>${esc(W.backlash)}</li>`);
+    for (const ch of S.changes.filter((x) => !x.tier && (x.to === me || x.from === me))) {
+      const inf = S.influence[ch.country] || {};
+      if (ch.to === me) lines.push(`<li><b>${I.fill(esc(W.gained), { country: countryName(ch.country) })}</b><br><span class="small">${parts(ch.country)}</span></li>`);
+      else if (ch.to) lines.push(`<li>${esc(I.fill(W.lost, { country: COUNTRY()[ch.country].name, team: team[ch.to].name, theirs: num(inf[ch.to] || 0), mine: num(inf[me] || 0) }))}</li>`);
+      else lines.push(`<li>${esc(I.fill(W.lostNeutral, { country: COUNTRY()[ch.country].name, mine: num(inf[me] || 0) }))}</li>`);
+    }
+    if (!lines.length) {
+      lines.push(`<li class="muted">${esc(W.none)}</li>`);
+      const best = Object.keys(why).filter((c) => S.owners[c] !== me)
+        .map((c) => ({ c, score: (S.influence[c] || {})[me] || 0, gain: ["a", "n", "p", "d"].reduce((x, k) => x + (why[c][k] || 0), 0) + Object.values(why[c].c || {}).reduce((x, v) => x + v, 0) }))
+        .sort((a, b) => b.score - a.score)[0];
+      if (best) lines.push(`<li>${esc(I.fill(W.closest, { country: COUNTRY()[best.c].name, score: num(best.score), owner: D.thresholds.owner, gain: sign(best.gain) }))}<br><span class="small">${parts(best.c)}</span></li>`);
+    }
+    return `<div class="panel why"><h3>${esc(W.title)}</h3><ul>${lines.join("")}</ul></div>`;
   }
   // Countries in play for my team whose need this card answers ("Appeals to").
   function appealed(card) {
@@ -295,6 +340,7 @@
       <div class="panel center"><p class="eyebrow">${esc(me.roles.length > 1 ? U().yourRoles : U().yourRole)}</p><h1>${team.flag} ${esc(team.name)}</h1>
       ${me.roles.length > 1 ? `<p class="muted">${esc(I.fill(U().multiRoles, { n: me.roles.length }))}</p>` : ""}</div>
       <div class="rolecards">${me.roles.map(roleCard).join("")}</div>
+      ${objectiveHtml(false)}
       <div class="panel"><h2>${esc(T().rules.title)}</h2>${rulesList()}</div>
       <div class="panel"><b>${pw.emoji} ${esc(I.fill(U().yourPower, { name: pw.name }))}</b><p class="muted">${esc(pw.desc)} ${esc(U().powerOnce)}</p>
       ${gaugesHtml(me.team)}</div>
@@ -329,6 +375,7 @@
     return `<section class="stack">
       ${eventBox(true)}
       ${inPlayHtml()}
+      ${objectiveHtml(false)}
       <details class="panel mine"><summary>${flagName(me.team)} — ${esc(U().yourGauges)} <span class="muted">(${esc(fill(T().rolesReady, rc))})</span></summary>${gaugesHtml(me.team)}</details>
       ${tabs}
       <div class="tabpanel">${tab === "diplomat" ? diplomatView() : roleDecideView(tab)}</div>
@@ -452,6 +499,8 @@
     const general = S.headlines.filter((h) => !h.teams.includes(me.team)).slice(0, 3);
     return `<section class="stack">
       <div class="panel"><p class="eyebrow">${S.year} — ${esc(T().phases.reveal)}</p><h2>${flagName(me.team)}</h2>${deltas}${gaugesHtml(me.team)}</div>
+      ${whyHtml()}
+      ${objectiveHtml(false)}
       <div class="panel"><h3>${esc(U().yourHeadlines)}</h3><ul class="heads">${(mine.length ? mine : general).map((h) => `<li>${esc(tr(h.text))}</li>`).join("")}</ul></div>
       <div class="panel"><h3>${esc(U().theMap)}</h3><div class="minimap full" id="minimap"></div></div>
     </section>`;
@@ -467,7 +516,8 @@
     return `<section class="stack">
       <div class="panel center"><div class="verdict ${S.gameOver ? "lost" : "ok"}">${esc(S.gameOver ? T().gameOver : T().planetSurvived)}</div>
       <h1>${team[me.team].flag} #${mine.rank}</h1><p class="muted">${esc(I.fill(U().countriesZone, { n: mine.zone }))} · ✨ ${mine.attract}</p></div>
-      <div class="panel"><h3>${esc(U().finalRanking)}</h3><ol class="ranking ${S.gameOver ? "grey" : ""}">${e.scores.map((s) => `<li class="${s.team === me.team ? "me" : ""}">${team[s.team].flag} ${esc(team[s.team].name)} <b class="num">${s.zone}</b></li>`).join("")}</ol></div>
+      ${objectiveHtml(true)}
+      <div class="panel"><h3>${esc(U().finalRanking)}</h3><ol class="ranking ${S.gameOver ? "grey" : ""}">${e.scores.map((s) => `<li class="${s.team === me.team ? "me" : ""}">${team[s.team].flag} ${esc(team[s.team].name)} <b class="num">${s.score}</b>${s.bonus ? ` <span class="small">(${s.zone} + 🕵️ ${s.bonus})</span>` : ""}</li>`).join("")}</ol></div>
       ${award.length ? `<div class="panel"><h3>${esc(U().yourAward)}</h3>${award.map((a) => `<p><b>${esc(T().awards[a.key])}</b> — ${esc(a.card ? `${CARD()[a.card].emoji} ${CARD()[a.card].name}` : a.value)}</p>`).join("")}</div>` : ""}
       <div class="panel center debatebox"><p class="eyebrow">${esc(U().debateLabel)}</p><h2>${esc(T().debate)}</h2></div>
     </section>`;

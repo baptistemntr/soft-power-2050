@@ -231,6 +231,13 @@ export const EVENT = Object.fromEntries(EVENTS.map((e) => [e.id, e]));
 export const FIRST_EVENT = "ev_chatgpt";
 export const LAST_EVENT = "ev_summit";
 
+// Secret objectives: one per team, drawn at the start (seeded). Worth C.OBJ_BONUS points in the final ranking.
+export const OBJECTIVES = ["country", "cohesion7", "planet7", "eco7", "calm", "attractive"];
+// For the "country" objective: a contested country the team can reach.
+export const OBJECTIVE_COUNTRIES = {
+  usa: ["gbr", "jpn", "col"], fra: ["gbr", "deu", "egy"], swe: ["gbr", "deu", "tur"], chn: ["jpn", "ind", "ken"], bra: ["col", "aus", "zaf"],
+};
+
 export const DIPLO_TYPES = {
   trade: { emoji: "📦", name: "Trade deal", desc: "Both teams: 💰+1." },
   climate: { emoji: "🌱", name: "Climate pact", desc: "Both teams: 🌍+1, 💰−1." },
@@ -360,6 +367,35 @@ const TEXT_EN = {
     rulesBtn: "❓ Rules",
     close: "Close",
   },
+  objectives: {
+    country: "Have {country} in your zone in 2050.",
+    cohesion7: "Finish with 🤝 Cohesion at 7 or more.",
+    planet7: "Finish with 🌍 Planet at 7 or more.",
+    eco7: "Finish with 💰 Growth at 7 or more.",
+    calm: "Never go above 2 🔥 backlash.",
+    attractive: "Be the most attractive model in 2050 (highest ✨).",
+  },
+  objective: {
+    title: "🕵️ Secret objective",
+    hint: "Only your team knows it. Worth +{n} points in the final ranking.",
+    onTrack: "✓ on track",
+    notYet: "✗ not yet",
+    done: "✓ achieved",
+    missed: "✗ missed",
+    bonus: "+{n} pts",
+  },
+  why: {
+    title: "🔎 Why?",
+    gained: "{country} joined your zone:",
+    lost: "{country} now looks to {team}: {theirs} vs {mine} for you.",
+    lostNeutral: "{country} drifted away (your influence fell to {mine}).",
+    backlash: "🚫 Cultural backlash: your influence was halved everywhere.",
+    none: "No country moved for you this turn.",
+    closest: "Closest: {country} {score}/{owner} ({gain} this turn).",
+    attract: "attractiveness", need: "need", power: "super-power", deal: "cultural exchange",
+  },
+  advice: "⭐ Advice",
+  replay: "2030 → 2050: the map, turn by turn",
   rules: {
     title: "How to play",
     items: [
@@ -389,11 +425,12 @@ const TEXT_EN = {
     saveKeyPlayers: "Save the key to see players.", noPlayers: "No players yet.", resetDone: "Game reset ✔",
     pressAgain: "Press again to reset the game", dblClick: "Double-click to reset (or press R twice)", teamOf: "Team of {name}",
     ctlHost: "⚙️ Host", ctlSave: "Save", ctlClose: "Close now ⏹", ctlTimer: "Decide timer", ctlSet: "Set",
+    objectivesTitle: "🕵️ Secret objectives", toObjectives: "→ secret objectives", toPodium: "→ podium", sound: "🔊 Sounds", swing: "⚡ may switch next turn",
     ctlReset: "Reset (double-click)", ctlKeys: "Keys: → or Space = next · R twice = reset · L = language", ctlLang: "Language",
   },
   map: {
     aria: "World map of influence", teamCountry: "Team country", attractiveness: "attractiveness",
-    noInfluence: "No influence yet", looksTo: "Looks to", ownWay: "Finds its own way", targetAria: "Target {name}",
+    noInfluence: "No influence yet", looksTo: "Looks to", ownWay: "Finds its own way", targetAria: "Target {name}", swing: "⚡ May switch next turn",
   },
 };
 
@@ -515,6 +552,35 @@ const TEXT_FR = {
     rulesBtn: "❓ Règles",
     close: "Fermer",
   },
+  objectives: {
+    country: "Avoir {country} dans ta zone en 2050.",
+    cohesion7: "Finir avec 🤝 Cohésion à 7 ou plus.",
+    planet7: "Finir avec 🌍 Planète à 7 ou plus.",
+    eco7: "Finir avec 💰 Croissance à 7 ou plus.",
+    calm: "Ne jamais dépasser 2 🔥 de rejet.",
+    attractive: "Être le modèle le plus attractif en 2050 (✨ la plus haute).",
+  },
+  objective: {
+    title: "🕵️ Objectif secret",
+    hint: "Seule ton équipe le connaît. Il rapporte +{n} points au classement final.",
+    onTrack: "✓ en bonne voie",
+    notYet: "✗ pas encore",
+    done: "✓ réussi",
+    missed: "✗ raté",
+    bonus: "+{n} pts",
+  },
+  why: {
+    title: "🔎 Pourquoi ?",
+    gained: "{country} a rejoint ta zone :",
+    lost: "{country} regarde maintenant vers {team} : {theirs} contre {mine} pour toi.",
+    lostNeutral: "{country} s'est éloigné (ton influence est tombée à {mine}).",
+    backlash: "🚫 Rejet culturel : ton influence a été divisée par 2 partout.",
+    none: "Aucun pays n'a bougé pour toi ce tour.",
+    closest: "Le plus proche : {country} {score}/{owner} ({gain} ce tour).",
+    attract: "attractivité", need: "besoin", power: "super-pouvoir", deal: "échange culturel",
+  },
+  advice: "⭐ Conseil",
+  replay: "2030 → 2050 : la carte, tour par tour",
   rules: {
     title: "Comment jouer",
     items: [
@@ -544,11 +610,12 @@ const TEXT_FR = {
     saveKeyPlayers: "Enregistre la clé pour voir les joueurs.", noPlayers: "Pas encore de joueurs.", resetDone: "Partie réinitialisée ✔",
     pressAgain: "Appuie encore pour réinitialiser la partie", dblClick: "Double-clic pour réinitialiser (ou R deux fois)", teamOf: "Équipe de {name}",
     ctlHost: "⚙️ Animateur", ctlSave: "Enregistrer", ctlClose: "Clore maintenant ⏹", ctlTimer: "Timer décision", ctlSet: "Appliquer",
+    objectivesTitle: "🕵️ Objectifs secrets", toObjectives: "→ objectifs secrets", toPodium: "→ podium", sound: "🔊 Sons", swing: "⚡ peut basculer au prochain tour",
     ctlReset: "Réinitialiser (double-clic)", ctlKeys: "Touches : → ou Espace = suivant · R deux fois = reset · L = langue", ctlLang: "Langue",
   },
   map: {
     aria: "Carte mondiale de l'influence", teamCountry: "Pays d'équipe", attractiveness: "attractivité",
-    noInfluence: "Pas encore d'influence", looksTo: "Regarde vers", ownWay: "Trace sa propre voie", targetAria: "Cibler {name}",
+    noInfluence: "Pas encore d'influence", looksTo: "Regarde vers", ownWay: "Trace sa propre voie", targetAria: "Cibler {name}", swing: "⚡ Peut basculer au prochain tour",
   },
 };
 

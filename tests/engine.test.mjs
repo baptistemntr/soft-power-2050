@@ -509,3 +509,70 @@ test("bots never crash: 60 full games with mixed styles, exhausted decks", () =>
 test("roles list in data matches engine expectations", () => {
   assert.equal(ROLE_IDS.length, 6);
 });
+
+// ---------------------------------------------------------------- secret objectives, why, replay
+test("each team gets a distinct secret objective, seeded", () => {
+  const g = E.initGame({ gameId: "obj1" });
+  const ids = TEAM_IDS.map((t) => g.teams[t].objective.id);
+  assert.equal(new Set(ids).size, 5);
+  for (const t of TEAM_IDS) {
+    const o = g.teams[t].objective;
+    if (o.id === "country") assert.ok(FREE_COUNTRIES.includes(o.country));
+  }
+  assert.deepEqual(E.initGame({ gameId: "obj1" }).teams.usa.objective, g.teams.usa.objective);
+});
+
+test("objectiveDone checks every objective type", () => {
+  const g = E.initGame({ gameId: "obj2" });
+  const set = (o) => { g.teams.fra.objective = o; return E.objectiveDone(g, "fra"); };
+  g.owners.gbr = "fra";
+  assert.equal(set({ id: "country", country: "gbr" }), true);
+  assert.equal(set({ id: "country", country: "deu" }), false);
+  g.teams.fra.gauges = { eco: 7, planet: 7, happy: 7, cohesion: 7 };
+  assert.equal(set({ id: "cohesion7" }), true);
+  assert.equal(set({ id: "planet7" }), true);
+  assert.equal(set({ id: "eco7" }), true);
+  g.teams.fra.gauges.eco = 6;
+  assert.equal(set({ id: "eco7" }), false);
+  g.stats.maxRej.fra = 3;
+  assert.equal(set({ id: "calm" }), false);
+  g.stats.maxRej.fra = 2;
+  assert.equal(set({ id: "calm" }), true);
+  for (const t of TEAM_IDS) g.teams[t].gauges = { eco: 1, planet: 1, happy: 1, cohesion: 1 };
+  g.teams.fra.gauges = { eco: 9, planet: 9, happy: 9, cohesion: 9 };
+  assert.equal(set({ id: "attractive" }), true);
+});
+
+test("final score = zone + objective bonus", () => {
+  const g = E.initGame({ gameId: "obj3" });
+  g.owners.can = "usa"; g.owners.mex = "usa"; g.owners.gbr = "fra";
+  g.teams.fra.objective = { id: "country", country: "gbr" };
+  g.teams.usa.objective = { id: "country", country: "jpn" };
+  const s = E.finalScores(g);
+  const fra = s.find((r) => r.team === "fra"), usa = s.find((r) => r.team === "usa");
+  assert.equal(fra.score, 1 + C.OBJ_BONUS); assert.equal(fra.objective, true);
+  assert.equal(usa.score, 2); assert.equal(usa.objective, false);
+  assert.equal(s[0].team, "fra");
+});
+
+test("history keeps where influence came from (why) and a map snapshot", () => {
+  const g = gameWithCard("cul_food", "fra");
+  const target = E.eligible("fra", g.owners)[0];
+  const out = resolve(g, { picks: { fra: { culture: { card: "cul_food", target } } } });
+  const h = out.history[1];
+  const e = h.why.fra[target];
+  assert.ok(e.a > 0 && e.n >= 0);
+  assert.equal(e.c.cul_food, 2);
+  const total = e.a + e.n + Object.values(e.c).reduce((x, v) => x + v, 0) + e.p + e.d;
+  assert.ok(Math.abs(total - out.influence[target].fra) < 0.2, "parts add up to the gain");
+  assert.equal(Object.keys(h.map).length, FREE_COUNTRIES.length);
+  for (const [c, [o]] of Object.entries(h.map)) assert.equal(o, out.owners[c]);
+});
+
+test("the calm objective remembers the peak backlash before a cultural backlash", () => {
+  const g = gameWithCard("cul_pressure", "chn");
+  g.teams.chn.rejection = 2;
+  const out = resolve(g, { picks: { chn: { culture: { card: "cul_pressure", target: E.eligible("chn", g.owners)[0] } } } });
+  assert.equal(out.teams.chn.rejection, 1);
+  assert.equal(out.stats.maxRej.chn, 5);
+});

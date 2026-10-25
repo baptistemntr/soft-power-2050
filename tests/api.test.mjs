@@ -337,3 +337,27 @@ test("full game with 12 players to the end screen", async () => {
   assert.equal(end.end.scores.length, 5);
   assert.ok(end.end.awards.length >= 4);
 });
+
+test("secret objective is private; advice only on turns 1-2; why after the reveal; replay at the end", async () => {
+  await lobbyWith(5);
+  await toDecide();
+  const pub = (await state()).body;
+  assert.ok(!JSON.stringify(pub).includes("objective"), "objectives are not public during the game");
+  const p = await holderOf("fra", "eco");
+  const priv = (await state(p.pid)).body.private;
+  assert.ok(priv.objective && priv.objective.id);
+  assert.ok(priv.advice && priv.hands.eco.includes(priv.advice.eco), "advice is one of my cards");
+  await host("close");
+  await host("next");
+  const rev = (await state(p.pid)).body.private;
+  assert.ok(rev.why && typeof rev.why === "object");
+  await host("next"); await host("next"); // turn 2 decide
+  assert.ok((await state(p.pid)).body.private.advice, "advice on turn 2");
+  await host("close"); await host("next"); await host("next"); await host("next"); // turn 3 decide
+  assert.equal((await state(p.pid)).body.private.advice, undefined, "no advice from turn 3");
+  await host("end");
+  const end = (await state()).body.end;
+  assert.equal(Object.keys(end.objectives).length, 5);
+  assert.equal(end.replay.length, 2);
+  assert.ok(end.scores.every((s) => typeof s.score === "number"));
+});

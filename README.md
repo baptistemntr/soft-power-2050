@@ -21,11 +21,18 @@ Stack : HTML/CSS/JS vanilla sans build (`public/`), Netlify Functions v2 (`netli
 
 *« Fais envie à tes voisins, ne les force pas, et ne laisse pas la planète couler. »*
 
+**Bonus : l'objectif secret.** Chaque équipe reçoit en début de partie un objectif caché, que seule elle voit sur ses téléphones. Par exemple : « Avoir 🇯🇵 Japon dans ta zone en 2050 », « Finir avec 🌍 à 7 ou plus », « Ne jamais dépasser 2 🔥 ». Réussi, il rapporte **+2 points** au classement final, qui compte les pays de la zone plus ce bonus. Les objectifs sont révélés sur le grand écran à la fin.
+
 Dans le jeu :
 - l'écran hôte projette ces règles pendant la phase Rôles ;
 - chaque téléphone les affiche avec sa carte de rôle, puis à tout moment avec le bouton **❓ Règles** ;
 - pendant la décision, chaque carte indique les pays qu'elle **séduit** (« 💘 Séduit : 🇲🇽 Mexique, 🇨🇱 Chili ») ;
 - le panneau **🗺️ Tes pays en jeu** montre, pour chaque pays atteignable, l'influence de l'équipe (ex. 2,8/4) et qui est en tête.
+- aux **tours 1 et 2**, une carte par rôle porte le badge **⭐ Conseil** : c'est le choix d'un joueur prudent ;
+- après chaque révélation, le téléphone explique **🔎 Pourquoi ?** : « 🇲🇽 Mexique a rejoint ta zone : attractivité +1,2 · besoin 🏙️ +1,4 · Ville du quart d'heure +1,0 », ou qui t'a dépassé, ou le pays le plus proche de basculer ;
+- sur l'écran projeté, les pays qui **peuvent basculer au prochain tour** clignotent (pointillés blancs, légende en haut à gauche) ;
+- à la fin, avant le podium, l'écran hôte **rejoue la carte de 2030 à 2050**, puis enchaîne podium → objectifs secrets → récompenses → question du débat (→ à chaque fois) ;
+- **sons** sur l'écran hôte uniquement (flash info, bascule d'un pays, compte à rebours, verdict). Ils sont générés par le navigateur, sans fichier audio, et se coupent dans le panneau ⚙️ Animateur (case « 🔊 Sons »). Le navigateur n'autorise le son qu'après un premier clic ou une première touche sur la page hôte.
 
 ## Langues
 
@@ -63,7 +70,7 @@ Avant le cours : ouvrir `/host.html` sur l'ordinateur relié au projecteur, en p
 | 0–3 | **Lobby** : les étudiants scannent le QR code, entrent un pseudo et choisissent un pays (ou 🎲 Auto). Les noms apparaissent en direct. | Expliquer en 1 minute : « Faites envie au monde. Le pays qui a la plus grande zone d'influence en 2050 gagne. Mais si la planète tombe sous 17/50, tout le monde perd. » Si les équipes sont déséquilibrées : **⚖️ Balance teams**. Puis **Start game** (ou →). |
 | 3–4 | **Roles** : chacun découvre sa carte de rôle sur son téléphone. | → pour lancer le premier événement. |
 | 4–29 | **6 tours** d'environ 4 min : **Event** (la une du journal, ~30 s) → **Decide** (150 s, chaque rôle choisit une carte) → **Validate** (30 s, le président peut opposer son veto et déclencher le super-pouvoir, la Voix du peuple peut lancer la grève) → **Reveal** (animation de la carte et gros titres, ~40 s). | Lire la une à voix haute, puis → à chaque étape. Pendant Decide, les pastilles ✓ montrent les rôles qui ont choisi : on peut fermer plus tôt avec → (*Close now*). |
-| 29–30 | **End** : podium, verdict de la planète, puis → récompenses fun, puis → **la question du débat** : *« Should the best model become everyone's model? »* | Lancer le débat. |
+| 29–30 | **End** : rejeu de la carte 2030 → 2050, puis → podium et verdict, → objectifs secrets, → récompenses, → **la question du débat** : *« Le meilleur modèle doit-il devenir celui de tout le monde ? »* | Lancer le débat. |
 
 **En retard ?** Dans le panneau ⚙️ Host (en bas à gauche), régler le timer *Decide* sur 90 s puis *Set*. Le changement s'applique aussi au tour en cours.
 
@@ -114,7 +121,7 @@ npm install
 npm test
 ```
 
-- `npm test` : 82 tests `node:test`, sans dépendance de test (données, règles du moteur, rôles pour n = 0 à 9, API avec un Blobs simulé en mémoire).
+- `npm test` : 88 tests `node:test`, sans dépendance de test (données, règles du moteur, rôles pour n = 0 à 9, API avec un Blobs simulé en mémoire).
 - `npm run simulate` : 1000 parties de bots, contrôle des objectifs d'équilibrage du §11.
 - **Local** : `npm i -g netlify-cli`, puis lancer `netlify dev` avec une clé de test locale dans `HOST_KEY` (par exemple `HOST_KEY=une-cle-de-test netlify dev --offline`) et ouvrir http://localhost:8888/host.html.
 - **Bout en bout** (Playwright, utilise le Chromium déjà en cache, sans `playwright install`) : `HOST_KEY=<même clé> node scripts/e2e.mjs`. Il joue 1 hôte + 12 joueurs sur une partie complète et enregistre les captures de chaque phase dans `screenshots/` (hôte 1920×1080, joueurs 390×844 et 1366×768). Il signale les débordements, les boutons de moins de 44 px et le scroll horizontal. Le paquet `playwright` est chargé localement ou depuis l'installation globale (`npm i -g --ignore-scripts playwright@1.58.2`, la version qui correspond au Chromium 1208 en cache). Les timers sont accélérés avec *Close now* (même chemin de code que la fin du timer, dont le minimum est 60 s).
@@ -152,11 +159,12 @@ tests/            data / engine / roles / api (.test.mjs) · memstore.mjs (Blobs
 
 | Objectif (§11) | Résultat |
 |---|---|
-| Victoires par pays entre 10 % et 30 % | 🇺🇸 12,1 % · 🇫🇷 20,9 % · 🇸🇪 19,0 % · 🇨🇳 23,8 % · 🇧🇷 24,2 % ✅ |
-| Zone moyenne du vainqueur entre 6 et 10 | 6,6 pays ✅ |
+| Victoires par pays entre 10 % et 30 % | 🇺🇸 12,5 % · 🇫🇷 20,4 % · 🇸🇪 20,4 % · 🇨🇳 22,7 % · 🇧🇷 24,0 % ✅ |
+| Zone moyenne du vainqueur entre 6 et 10 | 6,4 pays ✅ |
 | Game over planète entre 20 % et 40 % | 23,5 % ✅ |
 | Changements d'owner par tour ≥ 3 | 5,1 (4,1 dès le tour 1) ✅ |
 | Rejets culturels par partie ≈ 1 | 0,6 ✅ |
+| Objectifs secrets réussis (ajout) | 25 à 55 % selon l'objectif ; l'objectif change le vainqueur dans ~26 % des parties |
 
 Constantes finales (en haut de `engine.mjs`) : seuil d'owner 4 · écart 0,5 · érosion 0,9 · seuil de rejet 5 · pénalité de rejet 0,7 (dès 3) · seuils planète **20 / 17 / 5** · diviseurs 5 / 5 · **réchauffement 2**.
 
@@ -182,6 +190,9 @@ Avec les valeurs de la spec, le Brésil gagnait 70 % des parties et la planète 
 - Les gros titres « pause café ☕ » ne concernent que les équipes humaines. Quand il y a moins de 5 gros titres, ils sont complétés par une ligne de statut par équipe.
 - **Tolérance de 2,5 s** après la fin de Decide : un choix envoyé juste avant la fin mais traité juste après (wifi chargé) est accepté.
 - La couleur USA est `#E8743B`, comme le précise le §4.
+
+**Ajouts demandés après la spec**
+- Objectifs secrets (+`OBJ_BONUS` = 2 points au classement final), badge ⭐ Conseil aux tours 1-2, « Pourquoi ? » après chaque révélation, pays qui peuvent basculer, rejeu final, sons sur l'écran hôte. Le classement final = pays de la zone + bonus d'objectif (la spec : pays de la zone seulement).
 
 **Technique**
 - Les joueurs sont stockés sous `players/<gameId>/<pid>` (et non `players/<pid>`), pour qu'un Reset reparte vraiment de zéro. Les réponses aux offres sont sous `offers/<gameId>/<turn>/reply/<from>-<to>` : en local, une clé ne peut pas être aussi un « dossier ». Il n'y a pas de clé `…/diplomat` séparée, les clés d'offres suffisent.
