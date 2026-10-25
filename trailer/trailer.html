@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>Soft Power 2050 — Trailer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/public/app.css">
+<style>
+  /* Frame-by-frame rendering: everything is driven by seek(t), never by CSS time. */
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  :root { --bg: #070B18; --surface: #141B34; --surface-2: #1D2646; --text: #EEF1FA; --muted: #A3ACC8; --border: #2C3760; --tile: #233057; --tile-stroke: #3A4A7D; --link: #4A5A8E; color-scheme: dark; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; margin: 0; }
+  body { background: #070B18; color: #EEF1FA; font-family: "Inter", sans-serif; position: relative; }
+  .layer, .scene { position: absolute; inset: 0; }
+  .scene { display: grid; place-items: center; opacity: 0; pointer-events: none; }
+  #mapWrap { opacity: 0; transform-origin: 50% 50%; }
+  #map { position: absolute; left: 60px; top: 40px; width: 1800px; height: 1000px; }
+  #vignette { background: radial-gradient(ellipse at center, rgba(7,11,24,0) 40%, rgba(7,11,24,.85) 100%); }
+  #flash { background: #fff; opacity: 0; }
+  #redflash { background: #C62D3A; opacity: 0; mix-blend-mode: screen; }
+  .display { font-family: "Space Grotesk", sans-serif; letter-spacing: -0.01em; }
+  .big { font-size: 120px; font-weight: 700; line-height: 1.02; text-align: center; }
+  .mid { font-size: 72px; font-weight: 700; text-align: center; line-height: 1.1; }
+  .small { font-size: 40px; font-weight: 500; text-align: center; color: #A3ACC8; }
+  .stack { display: grid; gap: 28px; justify-items: center; }
+  .kicker { display: inline-flex; align-items: center; gap: 22px; font-family: "Space Grotesk"; font-weight: 700; font-size: 44px; color: #8B87FF; letter-spacing: .04em; text-transform: uppercase; }
+  .kicker b { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%; background: #8B87FF; color: #070B18; font-size: 44px; }
+  .yel { color: #F4C430; }
+  #intro .line { font-family: "Space Grotesk"; font-weight: 700; text-align: center; }
+  #intro .l1 { font-size: 150px; color: #F4C430; }
+  #intro .l2, #intro .l3 { font-size: 64px; }
+  #intro .cursor { display: inline-block; width: .5em; }
+  #title .logo { font-size: 190px; font-weight: 700; letter-spacing: .03em; text-shadow: 0 0 60px rgba(139,135,255,.55); }
+  #title .logo span { color: #F4C430; }
+  .flags { display: flex; gap: 46px; }
+  .flagchip { display: grid; justify-items: center; gap: 10px; padding: 26px 30px; border-radius: 26px; background: #141B34; border-top: 12px solid var(--c); min-width: 230px; }
+  .flagchip .f { font-size: 110px; line-height: 1; }
+  .flagchip .n { font-family: "Space Grotesk"; font-weight: 700; font-size: 40px; }
+  .facts { display: flex; gap: 70px; font-family: "Space Grotesk"; font-weight: 700; font-size: 64px; }
+  .facts span { opacity: 0; }
+  .paper { width: 1300px; background: #F6F1E4; color: #1B1A17; border-radius: 8px; padding: 50px 64px 54px; box-shadow: 0 40px 90px rgba(0,0,0,.6); }
+  .paper .mast { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 5px double #1B1A17; padding-bottom: 14px; font-family: Georgia, serif; }
+  .paper .mast b { font-size: 60px; letter-spacing: .06em; }
+  .paper .mast span { font-size: 28px; font-weight: 700; }
+  .paper h1 { font-family: Georgia, serif; font-size: 84px; line-height: 1.04; margin: 34px 0 18px; }
+  .paper .sub { font-family: Georgia, serif; font-style: italic; font-size: 38px; margin: 0; }
+  .cardsrow { display: flex; gap: 44px; align-items: flex-end; }
+  .tcard { width: 440px; min-height: 380px; background: #fff; color: #141A2E; border-radius: 30px; padding: 30px; display: grid; gap: 16px; align-content: start; border: 5px solid #D5DBE8; box-shadow: 0 26px 60px rgba(0,0,0,.45); position: relative; }
+  .tcard .e { font-size: 74px; line-height: 1; }
+  .tcard .nm { font-family: "Space Grotesk"; font-weight: 700; font-size: 42px; line-height: 1.08; }
+  .tcard .fl { font-style: italic; color: #555E78; font-size: 28px; }
+  .tcard .fx { font-family: "Space Grotesk"; font-weight: 700; font-size: 36px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .tcard .fx .p { color: #157F55; } .tcard .fx .m { color: #C62D3A; }
+  .tcard .ap { font-size: 26px; font-weight: 600; background: #EEF0FF; border-radius: 12px; padding: 8px 12px; }
+  .tcard .adv { position: absolute; top: -26px; right: 24px; background: #F3C34A; color: #1a1300; font-weight: 800; font-size: 28px; padding: 8px 18px; border-radius: 99px; opacity: 0; }
+  .roles { display: flex; gap: 14px; font-size: 26px; font-weight: 600; }
+  .roles span { background: #1D2646; border: 2px solid #2C3760; border-radius: 99px; padding: 8px 18px; white-space: nowrap; }
+  .gauges4 { display: grid; grid-template-columns: repeat(4, 300px); gap: 30px; }
+  .g4 { display: grid; grid-template-columns: 60px 1fr 60px; gap: 14px; align-items: center; font-size: 44px; font-family: "Space Grotesk"; font-weight: 700; }
+  .g4 .bar { height: 26px; border-radius: 99px; background: #1D2646; overflow: hidden; }
+  .g4 .bar i { display: block; height: 100%; background: #2E86DE; width: 50%; }
+  .caption { position: absolute; left: 0; right: 0; bottom: 70px; display: grid; justify-items: center; gap: 16px; }
+  .caption .box { background: rgba(20,27,52,.92); border: 2px solid #2C3760; border-radius: 26px; padding: 22px 40px; display: grid; gap: 10px; justify-items: center; }
+  .caption .t1 { font-family: "Space Grotesk"; font-weight: 700; font-size: 60px; }
+  .caption .t2 { font-size: 36px; color: #C9CFE4; }
+  .topleft { position: absolute; left: 80px; top: 70px; }
+  .fire { font-size: 110px; letter-spacing: 8px; }
+  .fire span { opacity: .15; filter: grayscale(1); }
+  .fire span.on { opacity: 1; filter: none; }
+  #backlashText { font-family: "Space Grotesk"; font-weight: 700; font-size: 130px; color: #FF5A67; text-shadow: 0 0 40px rgba(255,90,103,.7); opacity: 0; }
+  .thermo2 { width: 1300px; height: 54px; border-radius: 99px; background: linear-gradient(90deg, #C62D3A 0%, #E0A100 34%, #2FB37A 60%, #2FB37A 100%); position: relative; }
+  .thermo2 i { position: absolute; top: -22px; width: 18px; height: 98px; border-radius: 8px; background: #fff; box-shadow: 0 0 0 5px #070B18; }
+  .thermo2 .mk { position: absolute; top: -30px; width: 4px; height: 114px; background: #fff; opacity: .85; }
+  .thermo2 .mk.up::after { top: -60px; }
+  .thermo2 .mk::after { content: attr(data-l); position: absolute; top: 122px; left: 50%; transform: translateX(-50%); font-size: 34px; font-weight: 700; white-space: nowrap; }
+  #planetNum { font-family: "Space Grotesk"; font-weight: 700; font-size: 170px; font-variant-numeric: tabular-nums; }
+  #planetLose { font-family: "Space Grotesk"; font-weight: 700; font-size: 70px; color: #FF5A67; opacity: 0; }
+  .spy { font-size: 200px; line-height: 1; }
+  .phone { width: 360px; height: 700px; border-radius: 56px; background: #141B34; border: 10px solid #2C3760; display: grid; place-items: center; font-size: 160px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+  .steps3 { display: grid; gap: 34px; font-family: "Space Grotesk"; font-weight: 700; font-size: 76px; }
+  .steps3 div { opacity: 0; }
+  #outro .q { font-family: "Space Grotesk"; font-weight: 700; font-size: 96px; text-align: center; max-width: 1500px; line-height: 1.12; }
+  #outro .logo { font-family: "Space Grotesk"; font-weight: 700; font-size: 120px; letter-spacing: .03em; opacity: 0; }
+  #outro .logo span { color: #F4C430; }
+  #fadeBlack { background: #000; opacity: 0; }
+</style>
+</head>
+<body>
+  <div class="layer" id="mapWrap"><div id="map"></div></div>
+  <div class="layer" id="vignette"></div>
+
+  <section class="scene" id="intro"><div class="stack">
+    <div class="line l1" id="i1"></div><div class="line l2" id="i2"></div><div class="line l3 yel" id="i3"></div>
+  </div></section>
+
+  <section class="scene" id="title"><div class="stack">
+    <div class="logo display" id="logo">SOFT POWER <span>2050</span></div>
+    <div class="small" id="titleSub">Le jeu où l'on gagne en faisant envie.</div>
+  </div></section>
+
+  <section class="scene" id="setup"><div class="stack" style="gap:60px">
+    <div class="flags" id="flags"></div>
+    <div class="facts"><span id="fa1">5 pays</span><span id="fa2">6 tours · 2030 → 2050</span><span id="fa3">30 minutes</span></div>
+  </div></section>
+
+  <section class="scene" id="news"><div class="stack" style="gap:50px">
+    <div class="kicker"><b>1</b> Chaque tour, l'actualité frappe</div>
+    <article class="paper" id="paper"><div class="mast"><b>LA GAZETTE MONDIALE</b><span>2030 · Tour 1/6</span></div>
+      <h1 id="paperTitle"></h1><p class="sub" id="paperSub"></p></article>
+  </div></section>
+
+  <section class="scene" id="cards"><div class="stack" style="gap:44px">
+    <div class="kicker"><b>2</b> Chaque rôle joue une carte</div>
+    <div class="roles" id="roles"></div>
+    <div class="cardsrow" id="cardsrow"></div>
+    <div class="gauges4" id="gauges4"></div>
+  </div></section>
+
+  <section class="scene" id="influence">
+    <div class="topleft"><div class="kicker"><b>3</b> Fais envie à tes voisins</div></div>
+    <div class="caption"><div class="box"><div class="t1" id="infT1">Réponds à leurs besoins : 👷 🌊 😮‍💨 🎉</div><div class="t2" id="infT2">À 4 points d'influence, un pays rejoint ta zone.</div></div></div>
+  </section>
+
+  <section class="scene" id="backlash">
+    <div class="topleft"><div class="kicker"><b>4</b> Mais ne force pas</div></div>
+    <div class="stack" style="gap:40px">
+      <div class="tcard" id="adsCard" style="width:520px"></div>
+      <div class="fire" id="fire"></div>
+      <div id="backlashText">REJET CULTUREL !</div>
+    </div>
+  </section>
+
+  <section class="scene" id="planet"><div class="stack" style="gap:56px">
+    <div class="kicker"><b>5</b> Et sauve la planète</div>
+    <div id="planetNum">24/50</div>
+    <div class="thermo2" id="thermo"><span class="mk up" style="left:40%" data-l="⚠ 20"></span><span class="mk" style="left:34%" data-l="☠ 17"></span><i id="thermoI"></i></div>
+    <div class="small" style="margin-top:50px">Chaque pays perd 🌍 2 à chaque tour…</div>
+    <div id="planetLose">Sous 17 : tout le monde perd.</div>
+  </div></section>
+
+  <section class="scene" id="secret"><div class="stack">
+    <div class="spy">🕵️</div>
+    <div class="mid">Et chaque équipe cache<br><span class="yel">un objectif secret.</span></div>
+  </div></section>
+
+  <section class="scene" id="play"><div style="display:flex;gap:120px;align-items:center">
+    <div class="phone">📱</div>
+    <div class="steps3"><div id="st1">1. Scanne le QR code</div><div id="st2">2. Choisis ton pays</div><div id="st3" class="yel">3. Fais rêver le monde</div></div>
+  </div></section>
+
+  <section class="scene" id="outro"><div class="stack" style="gap:70px">
+    <div class="q" id="outroQ">Le meilleur modèle doit-il devenir celui de tout le monde ?</div>
+    <div class="logo" id="outroLogo">SOFT POWER <span>2050</span></div>
+  </div></section>
+
+  <div class="layer" id="flash"></div>
+  <div class="layer" id="redflash"></div>
+  <div class="layer" id="fadeBlack"></div>
+
+<script src="/public/i18n.js"></script>
+<script src="/public/map.js"></script>
+<script type="module">
+import { SCENES, DURATION } from "/trailer/timeline.mjs";
+
+const $ = (id) => document.getElementById(id);
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const easeOut = (x) => 1 - Math.pow(1 - clamp01(x), 3);
+const easeInOut = (x) => { x = clamp01(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const backOut = (x) => { x = clamp01(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+// opacity of a scene [a, b] with fades
+const win = (t, a, b, fi = .45, fo = .45) => Math.min(clamp01((t - a) / fi), clamp01((b - t) / fo));
+const prog = (t, a, d) => clamp01((t - a) / d);
+const type = (txt, t, t0, cps = 26) => txt.slice(0, Math.max(0, Math.floor((t - t0) * cps)));
+
+const R = await (await fetch("/trailer/data.json")).json();
+const D = SPI18n.localize(R, "fr");
+const TEAM = Object.fromEntries(D.teams.map((t) => [t.id, t]));
+const CARD = Object.fromEntries(D.cards.map((c) => [c.id, c]));
+const EVT = Object.fromEntries(D.events.map((e) => [e.id, e]));
+
+// ---------- static content
+$("flags").innerHTML = D.teams.map((t, i) => `<div class="flagchip" id="fc${i}" style="--c:${t.color}"><span class="f">${t.flag}</span><span class="n">${t.name}</span></div>`).join("");
+$("paperTitle").textContent = EVT.ev_chatgpt.title;
+$("paperSub").textContent = EVT.ev_chatgpt.subtitle;
+$("roles").innerHTML = D.roles.map((r, i) => `<span id="rl${i}">${r.emoji} ${r.name}</span>`).join("");
+const fxHtml = (c) => D.gauges.filter((k) => c.fx[k]).map((k) => `<span class="${c.fx[k] > 0 ? "p" : "m"}">${D.gaugeInfo[k].icon}${c.fx[k] > 0 ? "+" : "−"}${Math.abs(c.fx[k])}</span>`).join("") + (c.influence ? `<span class="p">🎯 +${c.influence}</span>` : "");
+const cardHtml = (c, appeal) => `<div class="adv" id="adv_${c.id}">⭐ Conseil</div><div class="e">${c.emoji}</div><div class="nm">${c.name}</div><div class="fl">“${c.flavor}”</div><div class="fx">${fxHtml(c)}</div>${appeal ? `<div class="ap">💘 Séduit : ${appeal}</div>` : ""}${c.rejection > 0 ? `<div class="fx"><span class="m">⚠️ Rejet +${c.rejection}</span></div>` : ""}`;
+const three = ["eco_robots", "eco_15min", "eco_carbontax"];
+$("cardsrow").innerHTML = three.map((id, i) => `<div class="tcard" id="tc${i}">${cardHtml(CARD[id], i === 1 ? "🇲🇽 Mexique, 🇳🇴 Norvège" : i === 2 ? "🇨🇦 Canada, 🇨🇱 Chili" : "🇰🇪 Kenya")}</div>`).join("");
+$("gauges4").innerHTML = D.gauges.map((k) => `<div class="g4"><span>${D.gaugeInfo[k].icon}</span><span class="bar"><i id="gb_${k}"></i></span><span id="gv_${k}">5</span></div>`).join("");
+$("adsCard").innerHTML = cardHtml(CARD.cul_ads);
+$("fire").innerHTML = [0, 1, 2, 3, 4].map((i) => `<span id="fi${i}">🔥</span>`).join("");
+
+// ---------- map
+const map = SPMap.create($("map"), D, { mode: "host" });
+const free = D.countries.filter((c) => c.need).map((c) => c.id);
+const blankState = () => ({ owners: Object.fromEntries(free.map((c) => [c, null])), influence: Object.fromEntries(free.map((c) => [c, Object.fromEntries(D.teams.map((t) => [t.id, 0]))])), teams: {} });
+// scripted spread of influence (time, country, team, strong)
+const SPREAD = [
+  [35.2, "mex", "usa", 0], [35.2, "nor", "swe", 0], [36.0, "esp", "fra", 0], [36.0, "kor", "chn", 0],
+  [36.8, "arg", "bra", 0], [36.8, "can", "usa", 0], [37.6, "mar", "fra", 0], [37.6, "vnm", "chn", 1],
+  [38.4, "fin", "swe", 1], [38.4, "chl", "bra", 1], [39.2, "gbr", "fra", 0], [39.2, "ind", "chn", 0],
+  [40.0, "deu", "swe", 0], [40.0, "col", "bra", 0], [40.8, "jpn", "usa", 0], [40.8, "ken", "chn", 0],
+  [41.6, "tur", "chn", 0], [41.6, "egy", "fra", 0], [42.2, "mex", "usa", 1], [42.2, "esp", "fra", 1],
+];
+const BACKLASH_AT = 48.0;
+function mapStateAt(t) {
+  const st = blankState();
+  for (const [ts, c, team, strong] of SPREAD) if (t >= ts) { st.owners[c] = team; st.influence[c][team] = strong ? 9 : 5; }
+  if (t >= BACKLASH_AT) {
+    // China's influence halves: strong becomes weak, Kenya and Turkey drift away, India looks to Sweden
+    for (const c of free) if (st.owners[c] === "chn") st.influence[c].chn = 4.5;
+    if (t >= BACKLASH_AT + .6) { st.owners.ken = null; st.owners.tur = "swe"; st.influence.tur.swe = 5; }
+  }
+  return st;
+}
+let lastMapKey = "";
+function pulse(t) {
+  // scale the tiles that just changed (deterministic pulse)
+  for (const [ts, c] of SPREAD) {
+    const tile = map.tiles[c];
+    if (!tile) continue;
+    const k = (t - ts) / .5;
+    const s = k > 0 && k < 1 ? 1 + .35 * Math.sin(Math.PI * k) : 1;
+    tile.g.querySelector(".tile-inner").style.transform = `scale(${s})`;
+  }
+}
+
+// ---------- render(t)
+function seek(t) {
+  const S = SCENES;
+  // map layer: faint behind title/setup, full during influence/backlash
+  let mapOp = 0, mapScale = 1;
+  if (t >= S.title[0] && t < S.setup[1]) mapOp = .22 * win(t, S.title[0], S.setup[1], 1, .6);
+  if (t >= S.influence[0] && t < S.backlash[1]) { mapOp = win(t, S.influence[0], S.backlash[1], .6, .5) * (t >= S.backlash[0] ? .45 : 1); mapScale = 1.04 - .04 * easeInOut(prog(t, S.influence[0], 10)); }
+  $("mapWrap").style.opacity = mapOp;
+  $("mapWrap").style.transform = `scale(${mapScale})`;
+  const key = JSON.stringify(mapStateAt(t).owners) + (t >= BACKLASH_AT);
+  if (key !== lastMapKey) { lastMapKey = key; map.update(mapStateAt(t), {}); }
+  pulse(t);
+
+  // scenes visibility
+  for (const [id, [a, b]] of Object.entries(S)) $(id).style.opacity = win(t, a, b, id === "intro" ? .01 : .45, .45);
+
+  // intro: typewriter
+  const L1 = "2030.", L2 = "Le rêve américain ne fait plus rêver.", L3 = "De qui le monde va-t-il rêver ensuite ?";
+  $("i1").textContent = type(L1, t, .5, 8);
+  $("i2").textContent = type(L2, t, 1.6, 30);
+  $("i3").textContent = type(L3, t, 3.6, 30);
+
+  // title: zoom in + flash
+  const tp = prog(t, S.title[0], .9);
+  $("logo").style.transform = `scale(${1.6 - .6 * easeOut(tp)})`;
+  $("logo").style.opacity = easeOut(tp);
+  $("titleSub").style.opacity = prog(t, S.title[0] + 1.3, .6);
+  $("flash").style.opacity = Math.max(0, .55 * (1 - prog(t, S.title[0] + .35, .5))) * (t > S.title[0] + .35 ? 1 : 0);
+
+  // setup: flags pop, then facts
+  D.teams.forEach((_, i) => {
+    const p = prog(t, S.setup[0] + .5 + i * .5, .45);
+    $(`fc${i}`).style.transform = `scale(${backOut(p)}) translateY(${(1 - easeOut(p)) * 60}px)`;
+    $(`fc${i}`).style.opacity = clamp01(p * 2);
+  });
+  ["fa1", "fa2", "fa3"].forEach((id, i) => { $(id).style.opacity = prog(t, S.setup[0] + 3.1 + i * .7, .4); });
+
+  // news: paper spins in
+  const pp = prog(t, S.news[0] + .3, .9);
+  $("paper").style.transform = `rotate(${-14 * (1 - easeOut(pp)) - .8}deg) scale(${.35 + .65 * backOut(pp)})`;
+  $("paper").style.opacity = clamp01(pp * 3);
+
+  // cards: roles, three cards fan in, advice badge, gauges move
+  D.roles.forEach((_, i) => { $(`rl${i}`).style.opacity = prog(t, S.cards[0] + .3 + i * .12, .3); });
+  three.forEach((id, i) => {
+    const p = prog(t, S.cards[0] + .8 + i * .5, .5);
+    const lift = t > S.cards[0] + 3.8 && i === 1 ? -40 * easeOut(prog(t, S.cards[0] + 3.8, .4)) : 0;
+    $(`tc${i}`).style.transform = `translateY(${(1 - easeOut(p)) * 500 + lift}px) rotate(${(i - 1) * 6 * (1 - easeOut(p))}deg)`;
+    $(`tc${i}`).style.opacity = clamp01(p * 2);
+    $(`tc${i}`).style.borderColor = i === 1 && t > S.cards[0] + 3.8 ? "#4F46E5" : "#D5DBE8";
+  });
+  $(`adv_${three[1]}`).style.opacity = prog(t, S.cards[0] + 3.8, .3);
+  const gStart = { eco: 6, planet: 5, happy: 7, cohesion: 6 };
+  const gEnd = { eco: 6, planet: 6, happy: 8, cohesion: 6 };
+  const gp = easeInOut(prog(t, S.cards[0] + 4.8, 1));
+  for (const k of D.gauges) {
+    const v = gStart[k] + (gEnd[k] - gStart[k]) * gp;
+    $(`gb_${k}`).style.width = `${v * 10}%`;
+    $(`gv_${k}`).textContent = Math.round(v);
+    $(`gb_${k}`).style.background = gEnd[k] > gStart[k] && gp > 0 ? "#2FB37A" : "#2E86DE";
+  }
+
+  // influence captions
+  $("infT2").style.opacity = prog(t, S.influence[0] + 3.5, .5);
+
+  // backlash: fire meter, red flash, shake
+  const bp = (i) => t >= [45.2, 45.8, 46.4, 47.0, 47.6][i];
+  for (let i = 0; i < 5; i++) $(`fi${i}`).classList.toggle("on", bp(i));
+  const bk = prog(t, BACKLASH_AT, .25);
+  $("backlashText").style.opacity = t >= BACKLASH_AT ? 1 : 0;
+  $("backlashText").style.transform = `scale(${t >= BACKLASH_AT ? backOut(bk) : .5}) translateX(${t >= BACKLASH_AT && t < BACKLASH_AT + .6 ? Math.sin(t * 90) * 14 : 0}px)`;
+  $("redflash").style.opacity = t >= BACKLASH_AT ? .35 * (1 - prog(t, BACKLASH_AT, .7)) : 0;
+  $("adsCard").style.transform = `translateY(${(1 - easeOut(prog(t, S.backlash[0] + .3, .5))) * 300}px)`;
+
+  // planet: number and cursor fall, then lose line
+  const pl = 24 - 8 * easeInOut(prog(t, S.planet[0] + 1, 3));
+  $("planetNum").textContent = `${Math.round(pl)}/50`;
+  $("planetNum").style.color = pl < 17 ? "#FF5A67" : pl < 20 ? "#F3C34A" : "#EEF1FA";
+  $("thermoI").style.left = `calc(${(pl / 50) * 100}% - 9px)`;
+  $("planetLose").style.opacity = prog(t, 54.2, .4);
+  $("planetLose").style.transform = `scale(${t >= 54.2 ? backOut(prog(t, 54.2, .4)) : .6})`;
+
+  // secret objective
+  document.querySelector("#secret .spy").style.transform = `scale(${backOut(prog(t, S.secret[0] + .2, .5))})`;
+
+  // play steps
+  ["st1", "st2", "st3"].forEach((id, i) => {
+    const p = prog(t, S.play[0] + .5 + i * .9, .4);
+    $(id).style.opacity = p; $(id).style.transform = `translateX(${(1 - easeOut(p)) * 80}px)`;
+  });
+
+  // outro: question then logo, fade to black
+  $("outroQ").style.transform = `scale(${.92 + .08 * easeOut(prog(t, S.outro[0], 1))})`;
+  $("outroLogo").style.opacity = prog(t, 71.2, .6);
+  $("outroLogo").style.transform = `scale(${1.3 - .3 * easeOut(prog(t, 71.2, .6))})`;
+  $("fadeBlack").style.opacity = prog(t, DURATION - .8, .8);
+}
+
+window.seek = seek;
+await document.fonts.ready;
+seek(0);
+window.trailerReady = true;
+// Preview in a browser: plays in real time (add ?still=SECONDS to show one frame)
+const still = new URLSearchParams(location.search).get("still");
+if (still) seek(Number(still));
+else if (!navigator.webdriver) { const t0 = performance.now(); const loop = () => { const t = (performance.now() - t0) / 1000; seek(t % DURATION); requestAnimationFrame(loop); }; loop(); }
+</script>
+</body>
+</html>

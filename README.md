@@ -41,6 +41,19 @@ Le jeu est en **français par défaut**, sur l'écran hôte comme chez les joueu
 - **Hôte** : sélecteur *Langue* dans le panneau ⚙️ Animateur, ou touche **L** (clé `sp_lang_host`).
 - Les gros titres sont générés côté serveur dans les deux langues, chaque écran affiche la sienne.
 
+## Trailer vidéo
+
+`trailer/soft-power-2050-trailer.mp4` : un trailer de 74 s (1080p, avec musique) qui présente le jeu et ses 5 règles, à projeter en ouverture de séance. Pour le régénérer après une modification (ffmpeg requis : `brew install ffmpeg`) :
+
+```bash
+node trailer/render.mjs
+```
+
+- `trailer/trailer.html` contient les scènes. Chaque image est calculée à partir du temps et capturée par Playwright, ce qui donne une vidéo parfaitement fluide.
+- `trailer/music.mjs` synthétise la bande-son (sans fichier audio).
+- `trailer/timeline.mjs` donne les temps des scènes, partagés par l'image et le son.
+- `node trailer/render.mjs --stills 10 30` produit des aperçus PNG.
+
 ## 1. Mise en ligne (GitHub + Netlify)
 
 1. **Créer le dépôt GitHub** (vide, privé ou public) puis, dans ce dossier :

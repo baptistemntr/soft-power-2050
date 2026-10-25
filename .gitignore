@@ -2,3 +2,7 @@ node_modules/
 .netlify/
 screenshots/
 .DS_Store
+trailer/stills/
+trailer/.frames/
+trailer/data.json
+trailer/*.mp4
