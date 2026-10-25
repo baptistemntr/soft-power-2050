@@ -25,27 +25,27 @@ export const NEEDS = {
 export const TEAMS = [
   {
     id: "usa", name: "USA", adj: "American", flag: "🇺🇸", color: "#E8743B", pattern: "stripes",
-    gauges: { eco: 8, planet: 2, happy: 5, cohesion: 4 },
+    gauges: { eco: 8, planet: 3, happy: 6, cohesion: 6 }, // spec: 8/2/5/4 (rebalanced, see README)
     power: { id: "hollywood", name: "Hollywood", emoji: "🎥", desc: "+4 influence on ANY country of the map, even far away.", targets: 1, scope: "any" },
   },
   {
     id: "fra", name: "France", adj: "French", flag: "🇫🇷", color: "#2E86DE", pattern: "dots",
-    gauges: { eco: 6, planet: 5, happy: 7, cohesion: 4 },
+    gauges: { eco: 6, planet: 5, happy: 7, cohesion: 6 }, // spec: 6/5/7/4
     power: { id: "artdevivre", name: "Art de vivre", emoji: "🥐", desc: "This turn, your Culture card's influence is doubled.", targets: 0, scope: null },
   },
   {
     id: "swe", name: "Sweden", adj: "Swedish", flag: "🇸🇪", color: "#F4C430", pattern: "grid",
-    gauges: { eco: 5, planet: 6, happy: 7, cohesion: 7 },
+    gauges: { eco: 5, planet: 6, happy: 7, cohesion: 6 }, // spec: 5/6/7/7
     power: { id: "lagom", name: "Lagom", emoji: "🧘", desc: "Backlash drops to 0 and 🙂 +1.", targets: 0, scope: null },
   },
   {
     id: "chn", name: "China", adj: "Chinese", flag: "🇨🇳", color: "#C0392B", pattern: "diag",
-    gauges: { eco: 7, planet: 3, happy: 3, cohesion: 5 },
+    gauges: { eco: 7, planet: 3, happy: 3, cohesion: 4 }, // spec: 7/3/3/5
     power: { id: "silkroads", name: "Silk Roads", emoji: "🛤️", desc: "+2 influence on 3 eligible countries of your choice, but backlash +1.", targets: 3, scope: "eligible" },
   },
   {
     id: "bra", name: "Brazil", adj: "Brazilian", flag: "🇧🇷", color: "#27AE60", pattern: "waves",
-    gauges: { eco: 4, planet: 8, happy: 6, cohesion: 4 },
+    gauges: { eco: 4, planet: 7, happy: 5, cohesion: 4 }, // spec: 4/8/6/4
     power: { id: "carnaval", name: "Carnaval", emoji: "🎭", desc: "+3 influence on every 🎉 country (anywhere), +1 on every eligible country, 🙂 +1.", targets: 0, scope: null },
   },
 ];
@@ -81,19 +81,20 @@ export const COUNTRIES = [
   { id: "jpn", name: "Japan", flag: "🇯🇵", need: "burnout", x: 92, y: 33 },
   { id: "vnm", name: "Vietnam", flag: "🇻🇳", need: "tech", x: 82, y: 48 },
   { id: "idn", name: "Indonesia", flag: "🇮🇩", need: "climat", x: 85, y: 63 },
-  { id: "aus", name: "Australia", flag: "🇦🇺", need: "climat", x: 89, y: 81 },
+  { id: "aus", name: "Australia", flag: "🇦🇺", need: "tech", x: 89, y: 81 }, // spec: climat (rebalanced)
 ];
 
 export const COUNTRY = Object.fromEntries(COUNTRIES.map((c) => [c.id, c]));
 export const FREE_COUNTRIES = COUNTRIES.filter((c) => !TEAM_IDS.includes(c.id)).map((c) => c.id);
 
-// Board links as written in the spec; made symmetric below.
+// Board links from the spec, made symmetric below.
+// Rebalanced (see README): added usa–col and bra–mex, removed bra–nga and bra–zaf (Brazil won 70% of simulated games).
 const RAW_NEIGHBORS = {
-  usa: ["can", "mex", "gbr", "jpn"],
+  usa: ["can", "mex", "gbr", "jpn", "col"],
   can: ["usa", "gbr"],
-  mex: ["usa", "col"],
-  col: ["mex", "bra", "chl"],
-  bra: ["col", "arg", "chl", "nga", "zaf"],
+  mex: ["usa", "col", "bra"],
+  col: ["mex", "bra", "chl", "usa"],
+  bra: ["col", "arg", "chl", "mex"],
   arg: ["bra", "chl", "zaf"],
   chl: ["col", "bra", "arg", "aus"],
   gbr: ["usa", "can", "fra", "swe", "nor"],
@@ -105,10 +106,10 @@ const RAW_NEIGHBORS = {
   deu: ["fra", "swe", "pol", "tur"],
   esp: ["fra", "mar"],
   mar: ["fra", "esp", "nga", "egy"],
-  nga: ["mar", "bra", "ken", "zaf"],
+  nga: ["mar", "ken", "zaf"],
   egy: ["mar", "tur", "ken"],
   ken: ["egy", "nga", "zaf", "ind"],
-  zaf: ["nga", "ken", "bra", "arg"],
+  zaf: ["nga", "ken", "arg"],
   tur: ["deu", "egy", "ind"],
   ind: ["tur", "ken", "chn", "idn"],
   chn: ["ind", "jpn", "kor", "vnm"],

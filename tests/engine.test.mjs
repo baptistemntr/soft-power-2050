@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as E from "../netlify/lib/engine.mjs";
-import { TEAM_IDS, FREE_COUNTRIES, DECKS, CARD, ROLE_IDS } from "../netlify/lib/data.mjs";
+import { TEAM_IDS, TEAMS, FREE_COUNTRIES, DECKS, CARD, ROLE_IDS } from "../netlify/lib/data.mjs";
 import { rng, shuffle } from "../netlify/lib/rng.mjs";
 
 const { C } = E;
@@ -42,9 +42,9 @@ test("events: turn 1 = ChatGPT, turn 6 = Summit, 4 distinct in between, seeded",
   assert.deepEqual(E.pickEvents("abc"), ev);
 });
 
-test("initial state: gauges from the spec, global planet 24, no owners", () => {
+test("initial state: gauges from data, global planet 24, no owners", () => {
   const g = E.initGame({ gameId: "g" });
-  assert.deepEqual(g.teams.usa.gauges, { eco: 8, planet: 2, happy: 5, cohesion: 4 });
+  for (const t of TEAMS) assert.deepEqual(g.teams[t.id].gauges, t.gauges);
   assert.equal(g.globalPlanet, 24);
   assert.ok(FREE_COUNTRIES.every((c) => g.owners[c] === null));
   assert.equal(FREE_COUNTRIES.length, 23);
@@ -83,9 +83,10 @@ test("dealHand: a played card does not come back; small deck is recycled", () =>
 // ---------------------------------------------------------------- map
 test("eligible: neighbours of the team country, extended through its zone", () => {
   const owners = Object.fromEntries(FREE_COUNTRIES.map((c) => [c, null]));
-  assert.deepEqual(E.eligible("usa", owners).sort(), ["can", "gbr", "jpn", "mex"]);
-  owners.mex = "usa";
-  assert.ok(E.eligible("usa", owners).includes("col"));
+  assert.deepEqual(E.eligible("usa", owners).sort(), ["can", "col", "gbr", "jpn", "mex"]);
+  assert.ok(!E.eligible("usa", owners).includes("chl"));
+  owners.col = "usa";
+  assert.ok(E.eligible("usa", owners).includes("chl"));
   assert.ok(!E.eligible("usa", owners).includes("bra"), "team countries are never eligible");
   owners.aus = "usa"; // far away (e.g. Hollywood): stays eligible, its neighbours too
   assert.ok(E.eligible("usa", owners).includes("aus"));
@@ -136,12 +137,13 @@ test("passive gain formula with erosion (no cards played)", () => {
   const g = humanGame("passive");
   g.influence.can.usa = 10;
   const out = resolve(g, {});
-  // USA after ChatGPT without tech card: eco 9, planet 2, happy 4, cohesion 3 -> attract 4.5
-  assert.deepEqual(out.teams.usa.gauges, { eco: 9, planet: 2, happy: 4, cohesion: 3 });
-  // Canada (climat -> planet 2): 10*0.9 + 4.5/5 + 2/5 + 0
-  assert.equal(out.influence.can.usa, 9 + 0.9 + 0.4);
-  // Mexico (ville -> happy 4): 0.9 + 0.8
-  assert.equal(out.influence.mex.usa, 1.7);
+  // USA 8/3/6/6 after ChatGPT without tech card (eco+1 happy-1 cohesion-1) and warming (planet-2)
+  assert.deepEqual(out.teams.usa.gauges, { eco: 9, planet: 3 - C.WARMING, happy: 5, cohesion: 5 });
+  const a = E.attract(out.teams.usa.gauges);
+  // Canada (climat -> planet): 10*0.9 + attract/5 + planet/5 + 0
+  assert.equal(out.influence.can.usa, Math.round((9 + a / 5 + (3 - C.WARMING) / 5) * 100) / 100);
+  // Mexico (ville -> happy 5)
+  assert.equal(out.influence.mex.usa, Math.round((a / 5 + 5 / 5) * 100) / 100);
   assert.equal(out.owners.can, "usa");
   assert.equal(out.influence.aus.usa, 0, "not eligible");
 });
@@ -233,21 +235,26 @@ test("cultural backlash at rejection >= 5: influence halved, owners recomputed, 
   assert.equal(out.owners.kor, out.influence.kor.usa > out.influence.kor.chn + C.OWNER_GAP ? "usa" : out.owners.kor);
 });
 
-test("planet: alert under 18, immediate game over under 10, end game over under 15", () => {
+test("planet: warming, alert banner, immediate game over, end game over", () => {
+  const W = C.WARMING;
   const g = humanGame("planet");
-  for (const t of TEAM_IDS) g.teams[t].gauges.planet = 3; // 15, ChatGPT does not touch planet
+  for (const t of TEAM_IDS) g.teams[t].gauges.planet = 3 + W; // ChatGPT does not touch planet
   const out = resolve(g, {});
-  assert.equal(out.globalPlanet, 15);
+  assert.equal(out.globalPlanet, 15, "every team lost WARMING");
+  assert.ok(out.globalPlanet < C.PLANET_WARN);
   assert.equal(out.planetAlert, true);
   assert.equal(out.gameOver, false, "15 at turn 1 is not game over");
   const g2 = humanGame("planet2");
-  for (const t of TEAM_IDS) g2.teams[t].gauges.planet = 1;
-  assert.equal(resolve(g2, {}).gameOver, true, "under 10 -> immediate game over");
+  for (const t of TEAM_IDS) g2.teams[t].gauges.planet = 1 + W;
+  assert.equal(resolve(g2, {}).gameOver, true, "under PLANET_INSTANT -> immediate game over");
   const g3 = humanGame("planet3", "ev_crash");
   g3.turn = 6; g3.events[5] = "ev_crash";
-  for (const t of TEAM_IDS) g3.teams[t].gauges.planet = 2; g3.teams.bra.gauges.planet = 6; // 14
-  assert.equal(resolve(g3, {}).gameOver, true, "turn 6 under 15 -> game over");
-  g3.teams.bra.gauges.planet = 7; // 15
+  const per = Math.floor((C.PLANET_LOSE - 1) / 5);
+  for (const t of TEAM_IDS) g3.teams[t].gauges.planet = per + W;
+  g3.teams.bra.gauges.planet = C.PLANET_LOSE - 1 - per * 4 + W; // total = PLANET_LOSE - 1
+  assert.equal(resolve(g3, {}).globalPlanet, C.PLANET_LOSE - 1);
+  assert.equal(resolve(g3, {}).gameOver, true, "turn 6 under PLANET_LOSE -> game over");
+  g3.teams.bra.gauges.planet += 1; // exactly PLANET_LOSE
   assert.equal(resolve(g3, {}).gameOver, false);
 });
 
@@ -267,9 +274,9 @@ test("ChatGPT: tech card -> happy +1, otherwise cohesion -1", () => {
   const g = gameWithCard("eco_aitraining", "swe");
   const s = { ...g.teams.swe.gauges };
   const out = resolve(g, { picks: { swe: { eco: { card: "eco_aitraining" } } } });
-  // event eco+1 happy-1 +1 ; card eco+1 happy+1
-  assert.deepEqual(out.teams.swe.gauges, { ...s, eco: s.eco + 2, happy: s.happy + 1 });
-  assert.equal(out.teams.usa.gauges.cohesion, 3);
+  // event eco+1 happy-1 +1 ; card eco+1 happy+1 ; warming
+  assert.deepEqual(out.teams.swe.gauges, { ...s, eco: s.eco + 2, happy: s.happy + 1, planet: s.planet - C.WARMING });
+  assert.equal(out.teams.usa.gauges.cohesion, TEAMS[0].gauges.cohesion - 1);
 });
 
 test("event gauge rules", () => {
@@ -314,10 +321,10 @@ test("culture influence: fete bonuses, Olympics x2, Art de vivre x2, TikTok", ()
 
 test("TikTok: global culture cards must target an eligible country", () => {
   const g = humanGame("tt", "ev_tiktok");
-  assert.equal(E.cultureTargets(g, "usa", "cul_series").length, 4);
+  assert.equal(E.cultureTargets(g, "usa", "cul_series").length, 5);
   g.events[0] = "ev_crash";
   assert.equal(E.cultureTargets(g, "usa", "cul_series").length, 23);
-  assert.equal(E.cultureTargets(g, "usa", "cul_ads").length, 4);
+  assert.equal(E.cultureTargets(g, "usa", "cul_ads").length, 5);
 });
 
 test("culture target that is not eligible is ignored (card fx still apply)", () => {
@@ -350,7 +357,7 @@ test("Lagom, Silk Roads, Carnaval, Art de vivre", () => {
     },
   });
   assert.equal(out.teams.swe.rejection, 0);
-  assert.equal(out.teams.swe.gauges.happy, 7 - 1 + 1);
+  assert.equal(out.teams.swe.gauges.happy, TEAMS[2].gauges.happy - 1 + 1);
   assert.equal(out.teams.chn.rejection, 1);
   assert.deepEqual(out.history[1].powers.chn.targets, ["ind", "kor", "vnm"]);
   assert.ok(out.influence.esp.bra >= 3, "carnaval reaches far fete countries");
@@ -362,9 +369,9 @@ test("offers: accepted trade gives eco +1 to both; unanswered = refused", () => 
   const g = humanGame("dip");
   const offers = [{ from: "fra", to: "swe", type: "trade", at: 1 }, { from: "usa", to: "chn", type: "trade", at: 2 }];
   const out = resolve(g, { offers, replies: { "fra-swe": { accept: true, type: "trade", at: 3 } } });
-  assert.equal(out.teams.fra.gauges.eco, 6 + 1 + 1);
-  assert.equal(out.teams.swe.gauges.eco, 5 + 1 + 1);
-  assert.equal(out.teams.usa.gauges.eco, 8 + 1);
+  assert.equal(out.teams.fra.gauges.eco, TEAMS[1].gauges.eco + 1 + 1);
+  assert.equal(out.teams.swe.gauges.eco, TEAMS[2].gauges.eco + 1 + 1);
+  assert.equal(out.teams.usa.gauges.eco, TEAMS[0].gauges.eco + 1);
   assert.deepEqual(out.history[1].pacts, [{ from: "fra", to: "swe", type: "trade" }]);
   assert.ok(out.headlines.some((h) => h.text.includes("France and 🇸🇪 Sweden sign a trade deal")));
   assert.equal(out.stats.deals.fra, 1);
@@ -406,7 +413,7 @@ test("offers: culture exchange gives +1 on shared eligible countries, else happy
   const out2 = resolve(humanGame("dip5"), { offers: [{ from: "usa", to: "chn", type: "culture", at: 1 }], replies: { "usa-chn": { accept: true, type: "culture" } } });
   assert.ok(out2.influence.jpn.usa > 0); // jpn is eligible for both
   const out3 = resolve(humanGame("dip6"), { offers: [{ from: "bra", to: "chn", type: "culture", at: 1 }], replies: { "bra-chn": { accept: true, type: "culture" } } });
-  assert.equal(out3.teams.bra.gauges.happy, 6 - 1 + 1);
+  assert.equal(out3.teams.bra.gauges.happy, TEAMS[4].gauges.happy - 1 + 1);
 });
 
 // ---------------------------------------------------------------- phases, headlines, end
@@ -467,7 +474,7 @@ test("finalScores: zone size, then total influence, then attractiveness", () => 
   const s = E.finalScores(g);
   assert.equal(s[0].team, "fra"); assert.equal(s[0].zone, 2); assert.equal(s[0].rank, 1);
   assert.equal(s[1].team, "usa");
-  // swe (attract 6.3) beats bra (5.5) on the last tiebreak
+  // swe beats bra on the last tiebreak (higher attractiveness)
   assert.ok(s.findIndex((r) => r.team === "swe") < s.findIndex((r) => r.team === "bra"));
 });
 

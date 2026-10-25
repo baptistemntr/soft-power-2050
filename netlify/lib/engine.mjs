@@ -15,12 +15,13 @@ export const C = {
   BACKLASH_AT: 5,        // rejection that triggers a cultural backlash
   REJ_PENALTY_AT: 3,     // rejection from which passive gains are reduced
   REJ_PENALTY: 0.7,      // passive gain multiplier when rejection >= REJ_PENALTY_AT
-  PLANET_WARN: 18,       // alert banner below this global planet score
-  PLANET_LOSE: 15,       // game over at the end below this
+  PLANET_WARN: 20,       // alert banner below this global planet score (spec: 18)
+  PLANET_LOSE: 17,       // game over at the end below this (spec: 15)
   PLANET_INSTANT: 10,    // immediate game over below this, any turn
   PASSIVE_DIV: 5,        // passive = attract / PASSIVE_DIV
   MATCH_DIV: 5,          // match = gauge / MATCH_DIV
   STRONG_AT: 7,          // influence shown at full opacity on the map
+  WARMING: 2,            // "business as usual": every team loses this much 🌍 each turn (added rule, see README)
 };
 
 export const COHOLD_ORDER = ["culture", "eco", "ecolo", "president", "voice", "diplomat"];
@@ -500,6 +501,7 @@ export function resolveTurn(game, inputs = {}) {
   // 6. Event gauge effects (conditions on start-of-turn gauges and played cards)
   for (const t of TEAM_IDS) {
     const d = eventGaugeDeltas(ev, startGauges[t], playedList[t]);
+    d.planet -= C.WARMING;
     for (const k of GAUGES) g.teams[t].gauges[k] += d[k];
   }
 
