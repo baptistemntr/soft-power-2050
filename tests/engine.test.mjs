@@ -245,7 +245,7 @@ test("planet: warming, alert banner, immediate game over, end game over", () => 
   assert.equal(out.planetAlert, true);
   assert.equal(out.gameOver, false, "15 at turn 1 is not game over");
   const g2 = humanGame("planet2");
-  for (const t of TEAM_IDS) g2.teams[t].gauges.planet = 1 + W;
+  for (const t of TEAM_IDS) g2.teams[t].gauges.planet = W; // 0 after warming
   assert.equal(resolve(g2, {}).gameOver, true, "under PLANET_INSTANT -> immediate game over");
   const g3 = humanGame("planet3", "ev_crash");
   g3.turn = 6; g3.events[5] = "ev_crash";

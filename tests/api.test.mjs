@@ -226,6 +226,9 @@ test("validate: president veto + power, voice strike, then idempotent reveal", a
   let s = (await state(pres.pid)).body;
   assert.equal(s.phase, "validate");
   assert.equal(s.private.teamPicks.eco.card, card, "the president sees the team's choices");
+  clock += 1000;
+  assert.equal((await pick(eco.pid, "eco", card)).status, 200, "grace period just after closing");
+  clock += 3000;
   assert.equal((await pick(eco.pid, "eco", card)).status, 409, "decisions closed");
   if (!voice.s.me.roles.includes("president")) assert.equal((await team(voice.pid, "president", { veto: "eco" })).status, 403);
   assert.equal((await team(pres.pid, "president", { veto: "eco", power: true })).status, 200);

@@ -17,7 +17,7 @@ export const C = {
   REJ_PENALTY: 0.7,      // passive gain multiplier when rejection >= REJ_PENALTY_AT
   PLANET_WARN: 20,       // alert banner below this global planet score (spec: 18)
   PLANET_LOSE: 17,       // game over at the end below this (spec: 15)
-  PLANET_INSTANT: 10,    // immediate game over below this, any turn
+  PLANET_INSTANT: 5,     // immediate game over below this, any turn (spec: 10)
   PASSIVE_DIV: 5,        // passive = attract / PASSIVE_DIV
   MATCH_DIV: 5,          // match = gauge / MATCH_DIV
   STRONG_AT: 7,          // influence shown at full opacity on the map
@@ -165,7 +165,7 @@ export function advance(game, now) {
     case "roles":
       g.phase = "event"; g.turn = 1; g.phaseEndsAt = now + g.eventSeconds * 1000; break;
     case "event":
-      g.phase = "decide"; g.phaseEndsAt = now + g.decideSeconds * 1000; break;
+      g.phase = "decide"; g.phaseEndsAt = now + g.decideSeconds * 1000; g.decideEndedAt = null; break;
     case "decide":
       return closePhase(g, now);
     case "reveal":
@@ -178,11 +178,20 @@ export function advance(game, now) {
   return g;
 }
 
+// Is the decide phase still accepting picks/offers? A short grace period absorbs requests
+// sent just before the deadline but processed just after (busy wifi, cold functions).
+export const DECIDE_GRACE_MS = 2500;
+export function decideOpen(game, now) {
+  if (game.phase === "decide") return !game.phaseEndsAt || now < game.phaseEndsAt + DECIDE_GRACE_MS;
+  if (game.phase === "validate" && game.decideEndedAt) return now < game.decideEndedAt + DECIDE_GRACE_MS;
+  return false;
+}
+
 // Host "Close now".
 export function closePhase(game, now) {
   const g = clone(game);
   const eff = effectivePhase(g, now);
-  if (eff.phase === "decide") { g.phase = "validate"; g.phaseEndsAt = now + g.validateSeconds * 1000; }
+  if (eff.phase === "decide") { g.phase = "validate"; g.decideEndedAt = Math.min(now, g.phaseEndsAt || now); g.phaseEndsAt = now + g.validateSeconds * 1000; }
   else if (eff.phase === "validate") { g.phase = "validate"; g.phaseEndsAt = Math.min(eff.phaseEndsAt || now, now); }
   return g;
 }

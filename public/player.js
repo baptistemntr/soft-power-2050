@@ -127,7 +127,7 @@
     if (!D || !S) return;
     renderTop();
     const app = $("app");
-    const key = JSON.stringify([S.phase, S.locked, S.turn, S.gameId, S.private, S.teams, S.owners, pending, cultureDraft, presDraft, voiceDraft, offerDraft, tab, joinDraft.editing, S.headlines.length, S.planetAlert]);
+    const key = JSON.stringify([S.phase, S.locked, S.turn, S.gameId, S.private, relevantTeams(), pending, cultureDraft, presDraft, voiceDraft, offerDraft, tab, joinDraft.editing, S.headlines.length, S.planetAlert]);
     if (key === viewKey) return;
     // keep typing in the join form
     if (app.contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
@@ -136,6 +136,17 @@
     app.innerHTML = view();
     bindView();
     window.scrollTo(0, scrollY);
+  }
+
+  // Only re-render for data this player actually sees (avoids redraws when other teams click).
+  function relevantTeams() {
+    const p = S.private;
+    if (!p || !p.me || joinDraft.editing || S.phase === "lobby" || S.phase === "end" || S.phase === "reveal") return [S.teams, S.owners, S.totalPlayers];
+    const mine = S.teams[p.me.team];
+    const out = [mine.gauges, mine.rejection, mine.zone, mine.rolesDone, mine.powerUsed, mine.strikeUsed];
+    if (p.me.roles.includes("diplomat")) out.push(Object.fromEntries(Object.entries(S.teams).map(([t, v]) => [t, [v.gauges, v.rejection, v.zone, v.bot]])));
+    if (cultureDraft || (presDraft && presDraft.power)) out.push(S.owners);
+    return out;
   }
 
   function renderTop() {

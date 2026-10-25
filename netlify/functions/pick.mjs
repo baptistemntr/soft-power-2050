@@ -1,7 +1,7 @@
 // POST /api/pick  { pid, role, card, target? }  — choose a card for one of my roles (phase decide).
 import { store, now, json, fail, readBody, loadGame, getJSON, setJSON, K, PID_RE } from "../lib/store.mjs";
 import { CARD, CARD_ROLES } from "../lib/data.mjs";
-import { effectivePhase, dealHand, cultureTargets } from "../lib/engine.mjs";
+import { decideOpen, dealHand, cultureTargets } from "../lib/engine.mjs";
 import { playerRoles } from "../lib/view.mjs";
 
 export default async (req) => {
@@ -12,7 +12,7 @@ export default async (req) => {
   const game = await loadGame(st);
   if (!game) return fail(409, "No game");
   const t = now();
-  if (effectivePhase(game, t).phase !== "decide") return fail(409, "Too late: decisions are closed");
+  if (!decideOpen(game, t)) return fail(409, "Too late: decisions are closed");
   const player = await getJSON(st, K.player(game.gameId, body.pid));
   const info = playerRoles(game, player);
   if (!info) return fail(403, "Unknown player");

@@ -6,7 +6,8 @@
 //   picks/<gameId>/<turn>/<team>/<role>           the holder(s) of that role
 //   team/<gameId>/<turn>/<team>/president|voice   the president / the voice
 //   offers/<gameId>/<turn>/<from>-<to>            the sender's diplomat
-//   offers/<gameId>/<turn>/<from>-<to>/reply      the receiver's diplomat
+//   offers/<gameId>/<turn>/reply/<from>-<to>      the receiver's diplomat
+//   (not ".../<from>-<to>/reply": a key cannot also be a "folder" in the local Blobs sandbox)
 import { getStore } from "@netlify/blobs";
 import { TEAM_IDS, CARD_ROLES } from "./data.mjs";
 
@@ -32,7 +33,7 @@ export const K = {
   teamAction: (gid, turn, team, who) => `team/${gid}/${turn}/${team}/${who}`,
   offersPrefix: (gid, turn) => `offers/${gid}/${turn}/`,
   offer: (gid, turn, from, to) => `offers/${gid}/${turn}/${from}-${to}`,
-  reply: (gid, turn, from, to) => `offers/${gid}/${turn}/${from}-${to}/reply`,
+  reply: (gid, turn, from, to) => `offers/${gid}/${turn}/reply/${from}-${to}`,
 };
 
 export async function getJSON(st, key) {
@@ -94,10 +95,11 @@ export async function loadTurn(st, gid, turn, { fresh = false } = {}) {
         if (who === "president") out.president[team] = v;
         if (who === "voice") out.voice[team] = v;
       } else if (parts[0] === "offers") {
-        const pair = parts[3];
+        const isReply = parts[3] === "reply";
+        const pair = isReply ? parts[4] : parts[3];
         const [from, to] = (pair || "").split("-");
         if (!TEAM_IDS.includes(from) || !TEAM_IDS.includes(to)) return;
-        if (parts[4] === "reply") out.replies[pair] = v;
+        if (isReply) out.replies[pair] = v;
         else out.offers.push({ ...v, from, to });
       }
     });

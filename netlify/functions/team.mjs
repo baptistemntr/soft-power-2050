@@ -5,7 +5,7 @@
 //   action "reply":     { from, accept }                               (decide or validate, diplomat)
 import { store, now, json, fail, readBody, loadGame, getJSON, setJSON, del, listKeys, K, PID_RE } from "../lib/store.mjs";
 import { TEAM_IDS, CARD_ROLES, DIPLO_TYPES, TEAMS } from "../lib/data.mjs";
-import { effectivePhase, powerTargets } from "../lib/engine.mjs";
+import { effectivePhase, decideOpen, powerTargets } from "../lib/engine.mjs";
 import { playerRoles } from "../lib/view.mjs";
 
 export default async (req) => {
@@ -23,11 +23,12 @@ export default async (req) => {
   const { team, roles } = info;
   const gid = game.gameId, turn = game.turn;
   const validateOpen = eff.phase === "validate" && !eff.locked;
+  const validateMsg = eff.phase === "decide" ? "Wait for the validation phase" : "Validation is closed";
 
   switch (body.action) {
     case "president": {
       if (!roles.includes("president")) return fail(403, "Only the president can do this");
-      if (!validateOpen) return fail(409, "Validation is closed");
+      if (!validateOpen) return fail(409, validateMsg);
       const veto = body.veto == null ? null : body.veto;
       if (veto !== null && !CARD_ROLES.includes(veto)) return fail(400, "Bad veto");
       let power = !!body.power;
@@ -47,7 +48,7 @@ export default async (req) => {
     }
     case "strike": {
       if (!roles.includes("voice")) return fail(403, "Only the Voice of the people can strike");
-      if (!validateOpen) return fail(409, "Validation is closed");
+      if (!validateOpen) return fail(409, validateMsg);
       const target = body.target == null ? null : body.target;
       if (target !== null && target !== "eco" && target !== "ecolo") return fail(400, "Strike eco or ecolo");
       if (target && game.teams[team].strikeUsed) return fail(409, "Strike already used");
@@ -57,14 +58,14 @@ export default async (req) => {
     }
     case "offer": {
       if (!roles.includes("diplomat")) return fail(403, "Only the diplomat can send offers");
-      if (eff.phase !== "decide") return fail(409, "Offers are sent during the decision phase");
+      if (!decideOpen(game, t)) return fail(409, "Offers are sent during the decision phase");
       const { to, type } = body;
       if (!TEAM_IDS.includes(to) || to === team) return fail(400, "Pick another team");
       if (!DIPLO_TYPES[type]) return fail(400, "Bad offer type");
       // one offer per team per turn: remove my other offers of this turn
       const mine = (await listKeys(st, K.offersPrefix(gid, turn))).filter((k) => {
         const pair = k.split("/")[3] || "";
-        return pair.startsWith(`${team}-`) && !k.endsWith("/reply") && pair !== `${team}-${to}`;
+        return pair.startsWith(`${team}-`) && pair !== `${team}-${to}`;
       });
       await Promise.all(mine.map((k) => del(st, k)));
       const offer = { type, by: player.name, at: t };
@@ -73,7 +74,7 @@ export default async (req) => {
     }
     case "reply": {
       if (!roles.includes("diplomat")) return fail(403, "Only the diplomat can answer offers");
-      if (!(eff.phase === "decide" || validateOpen)) return fail(409, "Too late to answer");
+      if (!(decideOpen(game, t) || validateOpen)) return fail(409, "Too late to answer");
       const { from } = body;
       if (!TEAM_IDS.includes(from) || from === team) return fail(400, "Bad offer");
       const offer = await getJSON(st, K.offer(gid, turn, from, team));
@@ -81,8 +82,8 @@ export default async (req) => {
       const accept = !!body.accept;
       if (accept) {
         // at most one accepted offer of each type per turn
-        const replyKeys = (await listKeys(st, K.offersPrefix(gid, turn)))
-          .filter((k) => k.endsWith(`-${team}/reply`) && !k.includes(`/${from}-${team}/`));
+        const replyKeys = (await listKeys(st, `${K.offersPrefix(gid, turn)}reply/`))
+          .filter((k) => k.endsWith(`-${team}`) && !k.endsWith(`/${from}-${team}`));
         const others = await Promise.all(replyKeys.map((k) => getJSON(st, k)));
         if (others.some((r) => r && r.accept && r.type === offer.type)) return fail(409, `You already accepted a ${DIPLO_TYPES[offer.type].name.toLowerCase()} this turn`);
       }

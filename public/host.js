@@ -112,7 +112,7 @@
         // decide just expired on the clock: show validate without waiting for the next poll
         if (left === 0 && S.phase === "decide") { S.phase = "validate"; S.phaseEndsAt = S.phaseEndsAt + 30000; render(); }
       } else {
-        el.textContent = S.phase === "validate" && S.locked ? "0:00" : "--:--";
+        el.textContent = S.phase === "validate" && S.locked ? "0:00" : "";
         el.classList.remove("urgent");
         bar.style.width = "0%";
       }
@@ -142,14 +142,20 @@
     $("teams").innerHTML = D.teams.map((team) => {
       const st = S.teams[team.id];
       const n = st.players.length;
-      const who = st.bot ? t.bot : `${n} player${n === 1 ? "" : "s"}`;
+      let who = esc(st.bot ? t.bot : `${n} player${n === 1 ? "" : "s"}`);
+      if (S.phase === "reveal" && revealDone && S.reveal && S.reveal.deltas[team.id]) {
+        const d = S.reveal.deltas[team.id];
+        const parts = [...D.gauges.map((k) => [D.gaugeInfo[k].icon, d[k]]), ["🔥", d.rejection]].filter(([, v]) => v)
+          .map(([i, v]) => `<b class="${v > 0 ? "pos" : "neg"}">${i}${v > 0 ? "+" : "−"}${Math.abs(v)}</b>`);
+        who = `<span class="dl">${parts.join(" ") || "no change"}</span>`;
+      }
       const showPills = (S.phase === "decide" || S.phase === "validate") && !st.bot;
       const pills = showPills
         ? `<div class="pills">${D.roles.map((r) => `<span class="pill ${st.rolesDone.includes(r.id) || (r.id === "president" && S.phase === "validate" && st.presidentDone) ? "done" : ""}">${r.emoji}${st.rolesDone.includes(r.id) ? " ✓" : ""}</span>`).join("")}</div>`
         : "";
       return `<div class="tpanel t-${team.id}${leader === team.id && st.zone > 0 ? " leader" : ""}">
         <div class="flag" aria-hidden="true">${team.flag}</div>
-        <div class="tname">${esc(team.name)} <small>${esc(who)}</small></div>
+        <div class="tname">${esc(team.name)} <small>${who}</small></div>
         <div class="zone"><b>${st.zone}</b><span>${esc(t.zone.toLowerCase())}</span></div>
         <div class="body">
           <div class="gauges">${D.gauges.map((k) => gaugeRow(k, st.gauges[k], team.color)).join("")}</div>
@@ -168,7 +174,7 @@
   function renderPlanet() {
     const v = S.globalPlanet ?? 24;
     const th = D.thresholds;
-    $("planetText").textContent = `${T().planetScore}: ${v}/50`;
+    $("planetText").textContent = `${T().planetScore}: ${v}/50 · ⚠ ${th.warn} · ☠ ${th.lose}`;
     $("thermoFill").style.left = `calc(${(v / 50) * 100}% - 3px)`;
     const mw = $("markWarn"), ml = $("markLose");
     mw.style.left = `${(th.warn / 50) * 100}%`; mw.dataset.l = `⚠ ${th.warn}`;
@@ -231,8 +237,7 @@
         break;
       }
       case "reveal":
-        if (revealDone && S.reveal) { ov.hidden = false; ov.className = "overlay light"; ov.innerHTML = recapHtml(); }
-        else ov.hidden = true;
+        ov.hidden = true;
         break;
       case "end":
         ov.hidden = false;
@@ -242,7 +247,7 @@
         ov.hidden = true;
     }
   }
-  function needsOverlay() { return ["lobby", "roles", "event", "end"].includes(S.phase) || (S.phase === "reveal" && revealDone); }
+  function needsOverlay() { return ["lobby", "roles", "event", "end"].includes(S.phase); }
 
   function drawQR(url) {
     const el = $("qr");
@@ -254,26 +259,13 @@
     else el.textContent = url;
   }
 
-  function delta(v) {
-    if (!v) return `<span class="zero">·</span>`;
-    return `<span class="${v > 0 ? "pos" : "neg"}">${v > 0 ? "+" : "−"}${Math.abs(v)}</span>`;
-  }
-  function recapHtml() {
-    const r = S.reveal;
-    const rows = D.teams.map((team) => {
-      const d = r.deltas[team.id];
-      return `<tr><td>${team.flag} ${esc(team.name)}</td>${D.gauges.map((k) => `<td>${delta(d[k])}</td>`).join("")}<td>${delta(d.rejection)}</td><td class="num"><b>${S.teams[team.id].zone}</b></td></tr>`;
-    }).join("");
-    return `<div class="recap"><h3>${S.year} — what changed</h3><table><thead><tr><th></th>${D.gauges.map((k) => `<th>${D.gaugeInfo[k].icon}</th>`).join("")}<th>🔥</th><th>🗺️</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  }
-
   function endHtml() {
     const t = T();
     const team = TEAM();
     const e = S.end;
     if (!e) return "";
     const lost = S.gameOver;
-    const verdict = `<div class="verdict ${lost ? "lost" : "ok"}">${esc(lost ? t.gameOver : t.planetSurvived)} · 🌍 ${S.globalPlanet}/50</div>`;
+    const verdict = `<div class="verdict ${lost ? "lost" : "ok"}">${esc(lost ? t.gameOver : t.planetSurvived)}<small>🌍 Common planet: ${S.globalPlanet}/50</small></div>`;
     if (endSlide === 0) {
       const top = e.scores.slice(0, 3);
       const order = [top[1], top[0], top[2]].filter(Boolean);
@@ -288,21 +280,15 @@
     return `<div class="end"><div class="muted" style="font-size:2.4vh">Time to debate 🎙️</div><div class="debate">${esc(t.debate)}</div>${verdict}</div>`;
   }
 
-  function renderNote() {
-    const n = $("mapNote");
-    if ((S.phase === "decide" || S.phase === "validate") && S.event) {
-      n.hidden = false;
-      n.innerHTML = S.phase === "decide"
-        ? `<b>📰 ${esc(S.event.title)}</b><br><span class="muted">${esc(S.event.means)}</span>`
-        : `<b>👑 ${S.locked ? "Choices are locked. Ready to reveal!" : "Presidents are validating…"}</b><br><span class="muted">Vetoes, super-powers and strikes happen now.</span>`;
-    } else n.hidden = true;
-  }
+  function renderNote() { $("mapNote").hidden = true; }
 
   // ------------------------------------------------------------------ ticker
   function renderTicker() {
     let list;
     if ((S.phase === "reveal" || S.phase === "end") && S.headlines.length) list = S.headlines.map((h) => h.text);
     else if (S.phase === "lobby" || S.phase === "nogame") list = [T().tagline];
+    else if (S.phase === "validate") list = [S.locked ? "🔒 Choices are locked. Ready to reveal!" : "👑 Presidents are validating: vetoes, super-powers and strikes happen now…", `📰 ${S.event.title}`];
+    else if (S.phase === "decide" && S.event) list = [`📰 ${S.event.title}`, `💡 ${S.event.means}`];
     else if (S.event) list = [`📰 ${S.event.title} — ${S.event.subtitle}`];
     else list = [T().tagline];
     const k = list.join("|");
