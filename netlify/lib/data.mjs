@@ -4,10 +4,10 @@
 export const GAUGES = ["eco", "planet", "happy", "cohesion"];
 
 export const GAUGE_INFO = {
-  eco: { icon: "💰", label: "Growth" },
-  planet: { icon: "🌍", label: "Planet" },
-  happy: { icon: "🙂", label: "Happiness & meaningful work" },
-  cohesion: { icon: "🤝", label: "Social cohesion" },
+  eco: { icon: "💰", label: "Growth", short: "Growth" },
+  planet: { icon: "🌍", label: "Planet", short: "Planet" },
+  happy: { icon: "🙂", label: "Happiness & meaningful work", short: "Happiness" },
+  cohesion: { icon: "🤝", label: "Social cohesion", short: "Cohesion" },
 };
 
 // need -> which gauge of a team the country looks at ("attract" = overall attractiveness)
@@ -293,7 +293,7 @@ export const TEXT = {
     veto: "👑 The {tflag} {adj} president vetoed '{card}'.",
     low: "{icon} {gauge} in {tflag} {team} hits rock bottom.",
     high: "{icon} {tflag} {team}'s {gauge} is through the roof.",
-    coffee: "☕ {tflag} {team}'s Ministry of {role} was on a coffee break.",
+    coffee: "☕ {tflag} {team}'s {office} was on a coffee break.",
     planet: "🌡️ Global planet score: {score}/50, the scientists are worried.",
     planetOk: "🌍 Global planet score: {score}/50. The scientists breathe.",
     pact: "🤝 {aflag} {a} and {bflag} {b} sign a {deal}.",
@@ -301,6 +301,9 @@ export const TEXT = {
     summitCard: "🌐 {tflag} {team} hosts a world climate summit. Everyone signs.",
     attractive: "✨ {tflag} {team} is the most attractive model of {year}.",
     quiet: "😴 A quiet year on the map. Diplomats are bored.",
+    mood: "{tflag} {team}: attractiveness {att}/10, {zone} countries look its way.",
   },
   ideaFallback: "{need} model",
+  offices: { president: "President", eco: "Ministry of Economy", ecolo: "Ministry of Ecology", culture: "Ministry of Culture", voice: "Union", diplomat: "Diplomat" },
+  ideaBacklash: "ads",
 };
