@@ -43,7 +43,7 @@ Le jeu est en **français par défaut**, sur l'écran hôte comme chez les joueu
 
 ## Trailer vidéo
 
-`trailer/soft-power-2050-trailer.mp4` : un trailer de 74 s (1080p, avec musique) qui présente le jeu et ses 5 règles, à projeter en ouverture de séance. Pour le régénérer après une modification (ffmpeg requis : `brew install ffmpeg`) :
+`trailer/soft-power-2050-trailer.mp4` : un trailer de 74 s (1080p, avec musique) qui présente le jeu et ses 5 règles, à projeter en ouverture de séance. Il est aussi publié sur le site : **`https://<votre-site>.netlify.app/trailer.mp4`**. Après une régénération, recopier la vidéo dans `public/trailer.mp4`. Pour le régénérer après une modification (ffmpeg requis : `brew install ffmpeg`) :
 
 ```bash
 node trailer/render.mjs
