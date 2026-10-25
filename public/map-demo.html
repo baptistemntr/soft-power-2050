@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map demo — Soft Power 2050</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+  body { padding: 16px; }
+  .big { height: 70vh; max-width: 1200px; margin: 0 auto; }
+  .mini { width: 340px; height: 220px; border: 1px solid var(--border); border-radius: 12px; margin-top: 16px; }
+  .bar { display: flex; gap: 8px; justify-content: center; margin: 12px; flex-wrap: wrap; }
+</style>
+</head>
+<body class="host">
+<!-- Dev-only page: checks the shared map renderer (step 6 of the work plan). -->
+<div class="bar"><button class="btn" id="anim">▶ Animate a reveal</button><button class="btn" id="sel">🎯 Mini-map targets</button></div>
+<div class="big" id="big"></div>
+<div class="mini" id="mini"></div>
+<p class="muted" id="msg"></p>
+<script src="map.js"></script>
+<script>
+(async () => {
+  const data = await (await fetch("/api/state?static=1")).json();
+  const free = data.countries.filter((c) => c.need).map((c) => c.id);
+  const zero = () => Object.fromEntries(data.teams.map((t) => [t.id, 0]));
+  const state = { owners: {}, influence: {}, teams: {} };
+  for (const c of free) { state.owners[c] = null; state.influence[c] = zero(); }
+  const set = (c, t, v) => { state.owners[c] = t; state.influence[c][t] = v; };
+  set("can", "usa", 5); set("mex", "usa", 8); set("esp", "fra", 9); set("mar", "fra", 4.5); set("nor", "swe", 7.5);
+  set("fin", "swe", 5); set("kor", "chn", 6); set("vnm", "chn", 9); set("arg", "bra", 8); set("chl", "bra", 4.2);
+  const big = SPMap.create(document.getElementById("big"), data, { mode: "host" });
+  big.update(state);
+  const mini = SPMap.create(document.getElementById("mini"), data, { mode: "mini", onSelect: (id) => { document.getElementById("msg").textContent = "Selected " + id; miniSel = [id]; miniUpdate(); } });
+  let miniSel = [];
+  const miniUpdate = () => mini.update(state, { selectable: ["gbr", "deu", "esp", "mar"], selected: miniSel, focus: ["fra", "gbr", "deu", "esp", "mar"], highlightTeam: "fra" });
+  miniUpdate();
+  document.getElementById("anim").onclick = async () => {
+    const changes = [
+      { country: "gbr", from: null, to: "fra", strong: false },
+      { country: "jpn", from: null, to: "usa", strong: true },
+      { country: "mex", from: "usa", to: "bra", strong: false },
+      { country: "ind", from: null, to: "chn", strong: false },
+    ];
+    for (const ch of changes) { state.owners[ch.country] = ch.to; state.influence[ch.country][ch.to] = ch.strong ? 8 : 5; }
+    big.update(state, { animateFrom: changes });
+    await big.animate(changes, { onStep: (ch) => { document.getElementById("msg").textContent = "Step: " + ch.country; } });
+  };
+  document.getElementById("sel").onclick = miniUpdate;
+})();
+</script>
+</body>
+</html>

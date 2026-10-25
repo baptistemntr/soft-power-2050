@@ -1,0 +1,129 @@
+/* SOFT POWER 2050 — shared styles (host + player) */
+:root {
+  --usa: #E8743B; --fra: #2E86DE; --swe: #F4C430; --chn: #C0392B; --bra: #27AE60;
+  --bg: #F3F5FA; --surface: #FFFFFF; --surface-2: #EBEEF6; --text: #141A2E; --muted: #555E78;
+  --border: #D5DBE8; --accent: #4F46E5; --accent-text: #FFFFFF; --danger: #C62D3A; --ok: #157F55; --warn: #9A6A00;
+  --tile: #DCE2EF; --tile-stroke: #B4BED3; --link: #9AA6C2; --shadow: 0 6px 20px rgba(20, 26, 46, .10);
+  --radius: 16px; --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; --display: "Space Grotesk", var(--font);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B1022; --surface: #141B34; --surface-2: #1D2646; --text: #EEF1FA; --muted: #A3ACC8;
+    --border: #2C3760; --accent: #8B87FF; --accent-text: #0B1022; --danger: #FF7A85; --ok: #4ED39A; --warn: #F3C34A;
+    --tile: #233057; --tile-stroke: #3A4A7D; --link: #4A5A8E; --shadow: 0 6px 20px rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"], body.host {
+  --bg: #0B1022; --surface: #141B34; --surface-2: #1D2646; --text: #EEF1FA; --muted: #A3ACC8;
+  --border: #2C3760; --accent: #8B87FF; --accent-text: #0B1022; --danger: #FF7A85; --ok: #4ED39A; --warn: #F3C34A;
+  --tile: #233057; --tile-stroke: #3A4A7D; --link: #4A5A8E; --shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.45; overflow-x: hidden; -webkit-text-size-adjust: 100%; }
+h1, h2, h3, .display { font-family: var(--display); letter-spacing: -0.01em; line-height: 1.15; margin: 0; }
+.num, .timer, .score { font-family: var(--display); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.btn {
+  min-height: 44px; padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface-2); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  transition: transform .1s ease, background .15s ease;
+}
+.btn:hover { background: var(--surface); }
+.btn:active { transform: scale(.98); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn.small { min-height: 36px; padding: 6px 12px; font-size: 14px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.card-surface { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+
+/* ---------------------------------------------------------------- gauges */
+.gauges { display: grid; gap: 6px; }
+.gauge { display: grid; grid-template-columns: 22px 1fr 22px; align-items: center; gap: 6px; font-size: 14px; }
+.gauge .icon { text-align: center; }
+.gauge .val { text-align: right; font-family: var(--display); font-variant-numeric: tabular-nums; font-weight: 700; }
+.segs { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; height: 10px; }
+.segs i { background: var(--surface-2); border-radius: 2px; border: 1px solid var(--border); }
+.segs i.on { background: var(--seg, var(--accent)); border-color: transparent; }
+.segs i.low { --seg: var(--danger); }
+.fire { letter-spacing: -2px; }
+.fire .off { opacity: .2; filter: grayscale(1); }
+
+/* ---------------------------------------------------------------- map */
+.spmap { position: relative; width: 100%; height: 100%; }
+.spmap svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.spmap .link { stroke: var(--link); stroke-width: 1.4; fill: none; opacity: .8; }
+.spmap .link.sea { stroke-dasharray: 5 6; }
+.spmap .sea-label { font-size: 13px; fill: var(--muted); }
+.spmap .hex-base { fill: var(--tile); stroke: var(--tile-stroke); stroke-width: 1.5; }
+.spmap .hex-fill { fill-opacity: 0; transition: fill-opacity .5s ease, fill .5s ease; }
+.spmap .hex-pat { fill: none; pointer-events: none; }
+.spmap .hex-ring { fill: none; stroke: none; stroke-width: 3; }
+.spmap .tile.team .hex-ring { stroke-width: 6; stroke-opacity: .55; }
+.spmap .tile.team .hex-base { stroke: #fff; stroke-width: 3; }
+.spmap .flag { font-size: 19px; }
+.spmap .flag.big { font-size: 26px; }
+.spmap .need { font-size: 13px; }
+.spmap .team-name { font-family: var(--display); font-size: 9px; font-weight: 700; fill: #fff; letter-spacing: .06em; paint-order: stroke; stroke: rgba(0,0,0,.45); stroke-width: 2px; }
+.spmap .label { font-size: 11.5px; font-weight: 600; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 3.5px; stroke-linejoin: round; }
+.spmap .badge-bg { fill: var(--surface); stroke: var(--border); }
+.spmap .badge-flag { font-size: 11px; }
+.spmap .tile { cursor: default; }
+.spmap .tile-inner { transform-box: fill-box; transform-origin: center; }
+.spmap .tile.pulse .tile-inner { animation: sp-pulse .6s ease; }
+.spmap .tile.dim { opacity: .35; }
+.spmap .tile.selectable { cursor: pointer; }
+.spmap .tile.selectable .hex-base { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 5 3; }
+.spmap .tile.selected .hex-base { stroke: var(--accent); stroke-width: 5; stroke-dasharray: none; }
+.spmap .tile.mine .hex-ring { stroke: var(--text); stroke-opacity: 1; stroke-width: 4; stroke-dasharray: 3 3; }
+@keyframes sp-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.spmap-tip {
+  position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none; min-width: 170px; max-width: 240px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+  box-shadow: var(--shadow); font-size: 13px;
+}
+.spmap-tip .tip-row { display: flex; justify-content: space-between; gap: 10px; font-variant-numeric: tabular-nums; }
+.spmap-mini svg { overflow: hidden; }
+.spmap-mini .label { font-size: 13px; }
+
+/* ---------------------------------------------------------------- game cards (player) */
+.cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.gcard {
+  text-align: left; border: 2px solid var(--border); border-radius: 18px; background: var(--surface); padding: 14px; min-height: 44px;
+  display: flex; flex-direction: column; gap: 8px; position: relative; box-shadow: var(--shadow); transition: border-color .15s ease, transform .1s ease;
+}
+.gcard:hover { border-color: var(--accent); }
+.gcard.chosen { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.gcard.chosen::after { content: "✓"; position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--accent-text); display: grid; place-items: center; font-weight: 800; }
+.gcard.vetoed { opacity: .5; text-decoration: line-through; }
+.gcard .head { display: flex; align-items: center; gap: 10px; padding-right: 32px; }
+.gcard .emoji { font-size: 28px; line-height: 1; }
+.gcard .name { font-family: var(--display); font-weight: 700; font-size: 17px; }
+.gcard .flavor { font-size: 14px; color: var(--muted); font-style: italic; }
+.gcard .fx { display: flex; flex-wrap: wrap; gap: 6px; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gcard .fx .pos { color: var(--ok); }
+.gcard .fx .neg { color: var(--danger); }
+.gcard .warn { color: var(--danger); font-weight: 700; font-size: 13px; }
+.gcard .tags { font-size: 13px; color: var(--muted); }
+
+/* ---------------------------------------------------------------- banners */
+.alert-banner { background: var(--danger); color: #fff; font-weight: 700; text-align: center; padding: 8px 12px; }
+.reconnect { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: var(--warn); color: #1a1300; text-align: center; font-weight: 700; padding: 8px; }
+
+/* ---------------------------------------------------------------- team accent helpers */
+.t-usa { --team: var(--usa); } .t-fra { --team: var(--fra); } .t-swe { --team: var(--swe); } .t-chn { --team: var(--chn); } .t-bra { --team: var(--bra); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
