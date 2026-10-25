@@ -1,21 +1,167 @@
 # Soft Power 2050
 
-Jeu multijoueur en équipes (≈ 30 min) pour clore l'atelier « La crise d'un modèle : quels horizons… après l'American Way of Life ».
+Jeu multijoueur en équipes, au tour par tour, ≈ 30 minutes, pour clore l'atelier
+*« La crise d'un modèle : quels horizons… après l'American Way of Life »* (Master 128 MBC, Paris-Dauphine).
 
-- Écran joueur : `/` · Écran hôte : `/host.html`
-- Stack : HTML/CSS/JS vanilla (`public/`), Netlify Functions v2 (`netlify/functions/`), Netlify Blobs.
-- Tests : `npm test` · Équilibrage : `npm run simulate`
+- **Écran joueur** : `/` (le QR code y mène) — téléphone ou portable, aucun compte.
+- **Écran hôte** : `/host.html` — à projeter, piloté par l'animateur.
+- 5 équipes (🇺🇸 🇫🇷 🇸🇪 🇨🇳 🇧🇷), 6 tours (2030 → 2050), la plus grande zone d'influence gagne… sauf si la planète commune s'effondre.
 
-(README complet à venir.)
+Stack : HTML/CSS/JS vanilla sans build (`public/`), Netlify Functions v2 (`netlify/functions/`), Netlify Blobs (`@netlify/blobs` 11.1.2), polling toutes les 1,5 s.
 
-## Équilibrage (résultats de `npm run simulate`, 1000 parties de bots)
+---
+
+## 1. Mise en ligne (GitHub + Netlify)
+
+1. **Créer le dépôt GitHub** (vide, privé ou public) puis, dans ce dossier :
+   ```bash
+   git remote add origin https://github.com/<vous>/soft-power-2050.git
+   git push -u origin main
+   ```
+   (le dépôt local contient déjà tous les commits, un par étape du plan de travail).
+2. **Créer le site Netlify** : *Add new project → Import an existing project → GitHub* → choisir le dépôt.
+   Les réglages sont lus dans `netlify.toml` (publish = `public`, functions = `netlify/functions`) : ne rien changer, cliquer *Deploy*.
+3. **Définir la clé hôte** (obligatoire) : *Project configuration → Environment variables → Add a variable*
+   - Key : `HOST_KEY`
+   - Value : un mot de passe de votre choix (ne le notez nulle part dans le code ni dans ce dépôt).
+   Puis *Deploys → Trigger deploy → Deploy project* pour que la variable soit prise en compte.
+4. Ouvrir `https://<votre-site>.netlify.app/host.html`, saisir la clé une fois (elle est gardée dans le navigateur de l'ordinateur hôte, clé `sp_host_key`) : le lobby et le QR code s'affichent.
+
+Netlify Blobs est activé automatiquement sur le site, il n'y a pas de base de données à configurer.
+
+---
+
+## 2. Déroulé le jour J (≈ 30 min)
+
+Avant le cours : ouvrir `/host.html` sur l'ordinateur relié au projecteur, en plein écran (F11), et vérifier que le lobby s'affiche. Si une ancienne partie traîne, appuyer deux fois sur **R** pour faire un reset.
+
+| Minute | Ce qui se passe | Ce que fait l'animateur |
+|---|---|---|
+| 0–3 | **Lobby** : les étudiants scannent le QR code, entrent un pseudo et choisissent un pays (ou 🎲 Auto). Les noms apparaissent en direct. | Expliquer en 1 minute : « Faites envie au monde. Le pays qui a la plus grande zone d'influence en 2050 gagne. Mais si la planète tombe sous 17/50, tout le monde perd. » Si les équipes sont déséquilibrées : **⚖️ Balance teams**. Puis **Start game** (ou →). |
+| 3–4 | **Roles** : chacun découvre sa carte de rôle sur son téléphone. | → pour lancer le premier événement. |
+| 4–29 | **6 tours** d'environ 4 min : **Event** (la une du journal, ~30 s) → **Decide** (150 s, chaque rôle choisit une carte) → **Validate** (30 s, le président peut opposer son veto et déclencher le super-pouvoir, la Voix du peuple peut lancer la grève) → **Reveal** (animation de la carte et gros titres, ~40 s). | Lire la une à voix haute, puis → à chaque étape. Pendant Decide, les pastilles ✓ montrent les rôles qui ont choisi : on peut fermer plus tôt avec → (*Close now*). |
+| 29–30 | **End** : podium, verdict de la planète, puis → récompenses fun, puis → **la question du débat** : *« Should the best model become everyone's model? »* | Lancer le débat. |
+
+**En retard ?** Dans le panneau ⚙️ Host (en bas à gauche), régler le timer *Decide* sur 90 s puis *Set*. Le changement s'applique aussi au tour en cours.
+
+Raccourcis hôte : **→** ou **Espace** = action suivante logique · **R** deux fois = reset.
+Un joueur qui recharge sa page retrouve automatiquement son équipe, ses rôles et ses choix. Un retardataire peut rejoindre en cours de partie : il est placé dans l'équipe la moins nombreuse.
+
+---
+
+## 3. Répétition la veille (10 minutes)
+
+1. Ouvrir `/host.html` sur l'ordinateur et prendre 3 ou 4 téléphones (ou des onglets en navigation privée).
+2. Rejoindre avec chaque téléphone, choisir des pays différents (les pays vides sont joués par un 🤖 bot).
+3. Jouer 1 ou 2 tours en entier : choisir des cartes, cibler un pays avec une carte Culture, envoyer une offre diplomatique, tester le veto, la grève et le super-pouvoir.
+4. Vérifier que le QR code est lisible depuis le fond de la salle sur le projecteur.
+5. **Reset** (R deux fois, ou double-clic sur *Reset* dans le panneau) : la partie et les joueurs sont effacés, le lobby est prêt pour le lendemain.
+
+---
+
+## 4. Si le wifi tombe
+
+- **Côté joueurs** : un bandeau « Reconnecting… » s'affiche et la page se reconnecte seule. Aucun choix enregistré n'est perdu, chacun est stocké côté serveur dès le clic. Si un téléphone reste bloqué, il suffit de **recharger la page** : le joueur retrouve sa place, son identifiant est gardé dans le téléphone.
+- **Partage de connexion** : un téléphone en point d'accès 4G/5G suffit pour 30 joueurs, le jeu échange très peu de données (quelques Ko toutes les 1,5 s par joueur).
+- **Côté hôte** : recharger `/host.html`, la partie reprend là où elle en était. Le minuteur est calculé à partir de l'heure du serveur.
+- **Timer écoulé pendant la coupure** : pas de souci. La phase Decide se ferme toute seule, puis la validation. La révélation n'est déclenchée que par l'hôte, une seule fois, quoi qu'il arrive.
+- **Plan B sans réseau** : jouer à main levée, l'hôte lit les événements à voix haute et les équipes votent sur papier. Le débat final reste le même.
+
+---
+
+## 5. Modifier les cartes, les événements et les textes
+
+Tout le contenu est dans **`netlify/lib/data.mjs`** (données pures) :
+
+- `CARDS` : une carte = `{ id, role, name, emoji, flavor, fx: { eco, planet, happy, cohesion }, tags, influence, global, rejection, special }`. Ajouter une ligne `card("eco", "eco_xxx", "Nom", "🧪", "Phrase fun", { fx: { eco: 1 }, tags: ["tech"] })`.
+- `EVENTS` : titre de la une, sous-titre et ligne *What it means for you*. Les **effets** des événements sont codés dans `eventGaugeDeltas` et `eventMultiplier` (`netlify/lib/engine.mjs`).
+- `TEAMS` (jauges de départ, couleurs, super-pouvoirs), `COUNTRIES` (besoins, positions), `RAW_NEIGHBORS` (liaisons de la carte).
+- `TEXT` : **tous les textes de l'interface** (en anglais). Pour passer en français, il suffit de traduire cet objet, ainsi que les noms et phrases des cartes et des événements.
+
+Après une modification : `npm test` (vérifie la validité des données) puis `npm run simulate` (vérifie l'équilibre), commit, push : Netlify redéploie tout seul.
+
+---
+
+## 6. Développement et tests
+
+```bash
+npm install
+npm test
+```
+
+- `npm test` : 77 tests `node:test`, sans dépendance de test (données, règles du moteur, rôles pour n = 0 à 9, API avec un Blobs simulé en mémoire).
+- `npm run simulate` : 1000 parties de bots, contrôle des objectifs d'équilibrage du §11.
+- **Local** : `npm i -g netlify-cli`, puis lancer `netlify dev` avec une clé de test locale dans `HOST_KEY` (par exemple `HOST_KEY=une-cle-de-test netlify dev --offline`) et ouvrir http://localhost:8888/host.html.
+- **Bout en bout** (Playwright, utilise le Chromium déjà en cache, sans `playwright install`) : `HOST_KEY=<même clé> node scripts/e2e.mjs`. Il joue 1 hôte + 12 joueurs sur une partie complète et enregistre les captures de chaque phase dans `screenshots/` (hôte 1920×1080, joueurs 390×844 et 1366×768). Il signale les débordements, les boutons de moins de 44 px et le scroll horizontal. Le paquet `playwright` est chargé localement ou depuis l'installation globale (`npm i -g --ignore-scripts playwright@1.58.2`, la version qui correspond au Chromium 1208 en cache). Les timers sont accélérés avec *Close now* (même chemin de code que la fin du timer, dont le minimum est 60 s).
+- **Charge** : `HOST_KEY=<même clé> node scripts/load.mjs` simule 30 joueurs qui font du polling toutes les 1,5 s et cliquent pendant 150 s, puis vérifie qu'aucun choix n'est perdu. Dernier résultat contre `netlify dev` : 3056 requêtes, **0 erreur, 0 choix perdu**, p50 150 ms, p95 465 ms.
+  - Remarque : l'émulateur Blobs local de `netlify dev` se bloque parfois environ 30 s sous forte charge (« Task timed out after 30 s » dans ses logs). Le test de bout en bout peut alors échouer sur un délai d'attente : il passe sur les relances. Pour encaisser ces à-coups, le client et l'hôte réessaient automatiquement leurs requêtes (toutes idempotentes) et coupent celles qui dépassent 8 à 10 s.
+- `public/map-demo.html` : page de démonstration de la carte (étape 6), utile pour la développer.
+
+### Arborescence
+
+```
+netlify.toml · package.json · README.md
+netlify/lib/      data.mjs (données) · engine.mjs (règles, fonctions pures) · rng.mjs · store.mjs (Blobs) · view.mjs (états public/privé)
+netlify/functions state.mjs (GET /api/state) · join.mjs · pick.mjs · team.mjs · host.mjs
+public/           index.html + player.js (joueur) · host.html + host.js (hôte) · map.js (carte SVG partagée) · app.css
+scripts/          simulate.mjs · e2e.mjs · load.mjs
+tests/            data / engine / roles / api (.test.mjs) · memstore.mjs (Blobs en mémoire)
+```
+
+### Clés Blobs (une seule source d'écriture par clé)
+
+| Clé | Écrite par |
+|---|---|
+| `game` | actions hôte uniquement (dont la résolution du tour) |
+| `players/<gameId>/<pid>` | le joueur `<pid>` (inscription) |
+| `picks/<gameId>/<turn>/<team>/<role>` | le ou les titulaires du rôle (le dernier choix compte) |
+| `team/<gameId>/<turn>/<team>/president` · `…/voice` | le président · la Voix du peuple |
+| `offers/<gameId>/<turn>/<from>-<to>` | le diplomate de l'équipe qui propose |
+| `offers/<gameId>/<turn>/reply/<from>-<to>` | le diplomate de l'équipe qui répond |
+
+`gameId` change à chaque Reset. `/api/state` ne renvoie jamais les mains ni les choix des autres équipes avant le reveal (testé).
+
+---
+
+## 7. Équilibrage (`npm run simulate`, 1000 parties)
 
 | Objectif (§11) | Résultat |
 |---|---|
-| Taux de victoire par pays entre 10 % et 30 % | 🇺🇸 12,1 % · 🇫🇷 21,0 % · 🇸🇪 18,5 % · 🇨🇳 23,8 % · 🇧🇷 24,6 % ✅ |
-| Zone moyenne du vainqueur entre 6 et 10 | 6,4 pays ✅ |
-| Game over planète entre 20 % et 40 % | 24,2 % ✅ |
-| Changements d'owner par tour ≥ 3 | 5,2 (4,1 dès le tour 1) ✅ |
-| Rejets culturels par partie ≈ 1 | 0,56 ✅ |
+| Victoires par pays entre 10 % et 30 % | 🇺🇸 12,1 % · 🇫🇷 20,9 % · 🇸🇪 19,0 % · 🇨🇳 23,8 % · 🇧🇷 24,2 % ✅ |
+| Zone moyenne du vainqueur entre 6 et 10 | 6,6 pays ✅ |
+| Game over planète entre 20 % et 40 % | 23,5 % ✅ |
+| Changements d'owner par tour ≥ 3 | 5,1 (4,1 dès le tour 1) ✅ |
+| Rejets culturels par partie ≈ 1 | 0,6 ✅ |
 
-Avec les valeurs de la spec, le Brésil gagnait 70 % des parties et la planète ne perdait quasiment jamais (0,1 %) : la pioche Écologie est très positive pour 🌍 et chaque équipe y joue une carte par tour. Changements appliqués (détails plus bas dans « Écarts par rapport à la spec ») : un réchauffement de −2 🌍 par équipe et par tour, des seuils planète à 20/17, des jauges de départ et quelques liaisons de carte retouchées.
+Constantes finales (en haut de `engine.mjs`) : seuil d'owner 4 · écart 0,5 · érosion 0,9 · seuil de rejet 5 · pénalité de rejet 0,7 (dès 3) · seuils planète **20 / 17 / 5** · diviseurs 5 / 5 · **réchauffement 2**.
+
+Avec les valeurs de la spec, le Brésil gagnait 70 % des parties et la planète ne perdait quasiment jamais (0,1 % de game over) : la pioche Écologie est très positive pour 🌍 et chaque équipe y joue une carte par tour. Les seuls réglages de constantes n'y suffisaient pas, j'ai donc aussi retouché quelques données (voir ci-dessous). J'ai aussi simulé des joueurs qui choisissent au hasard : 35 % de game over à la fin, et seulement 2 % de parties arrêtées avant 2050. C'est pour cette raison que le seuil de game over immédiat est passé de 10 à 5 : une classe distraite ne doit pas voir la partie s'arrêter au tour 3.
+
+---
+
+## 8. Écarts par rapport à la spec et choix faits quand la spec ne précisait pas
+
+**Équilibrage (validé par le simulateur)**
+- **Nouvelle règle « Business as usual »** : chaque pays perd 🌍 2 à chaque tour (constante `WARMING`). Elle est annoncée sur la une et dans l'écran joueur. Sans elle, la planète était systématiquement sauvée.
+- Seuils planète : bandeau d'alerte sous **20** (spec : 18), game over final sous **17** (spec : 15), game over immédiat sous **5** (spec : 10). Le thermomètre affiche les seuils réels.
+- Jauges de départ (éco/planète/bonheur/cohésion) : USA 8/3/6/6 (spec 8/2/5/4), France 6/5/7/6 (6/5/7/4), Suède 5/6/7/6 (5/6/7/7), Chine 7/3/3/4 (7/3/3/5), Brésil 4/7/5/4 (4/8/6/4). La planète commune de départ reste 24.
+- Carte : liaisons **ajoutées** USA–Colombie et Brésil–Mexique, **retirées** Brésil–Nigeria et Brésil–Afrique du Sud. Besoin de l'**Australie** : `tech` au lieu de `climat`. L'Amérique du Sud et l'Afrique australe formaient un « jardin » quasi exclusif du Brésil. Chaque pays d'équipe garde au moins 4 voisins (testé).
+
+**Règles**
+- Un pays déjà dans la zone d'une équipe reste éligible pour elle même s'il n'est pas voisin (cas de Hollywood sur un pays lointain).
+- Le ×1,5 du Sommet 2050 s'applique aux gains passifs.
+- Les cartes Culture n'ont pas de tags (la spec n'en donne pas). Les cartes Président non plus.
+- Les bots répondent aux offres selon la règle du §9, mais n'en envoient pas. Ils n'opposent jamais de veto et ne font jamais grève (les deux styles).
+- Un retardataire qui tombe dans une équipe bot reçoit les 6 rôles, et l'équipe cesse d'être un bot. Sinon, il devient co-titulaire d'un rôle, dans l'ordre culture, eco, ecolo, president, voice, diplomat.
+- « Diplomat of the year » compte les accords signés (envoyés ou acceptés). « Biggest polluter » est l'équipe dont la jauge 🌍 finale est la plus basse. « Backlash champion » se départage, à défaut de rejet culturel, par le rejet accumulé.
+- Les gros titres « pause café ☕ » ne concernent que les équipes humaines. Quand il y a moins de 5 gros titres, ils sont complétés par une ligne de statut par équipe.
+- **Tolérance de 2,5 s** après la fin de Decide : un choix envoyé juste avant la fin mais traité juste après (wifi chargé) est accepté.
+- La couleur USA est `#E8743B`, comme le précise le §4.
+
+**Technique**
+- Les joueurs sont stockés sous `players/<gameId>/<pid>` (et non `players/<pid>`), pour qu'un Reset reparte vraiment de zéro. Les réponses aux offres sont sous `offers/<gameId>/<turn>/reply/<from>-<to>` : en local, une clé ne peut pas être aussi un « dossier ». Il n'y a pas de clé `…/diplomat` séparée, les clés d'offres suffisent.
+- Les données statiques (cartes, pays, textes) sont servies par `GET /api/state?static=1`, pour garder une source unique (`data.mjs`) sans build.
+- Les coordonnées des pays sont étirées pour remplir le `viewBox` (sans chevauchement). Les deux routes maritimes (USA–Japon, Chili–Australie) sont dessinées comme des routes qui sortent par les bords de la carte, avec le drapeau de destination.
+- Au reveal, l'hôte affiche les deltas de jauges dans chaque panneau d'équipe plutôt que dans un encadré, pour ne pas masquer la carte.
+- Pour le ciblage Culture sur téléphone, la mini-carte zoome sur les pays éligibles et une liste de boutons (≥ 44 px) la complète.
+- Fichiers ajoutés à l'arborescence de la spec : `tests/data.test.mjs`, `tests/memstore.mjs`, `scripts/e2e.mjs`, `scripts/load.mjs`, `public/map-demo.html`, `.gitignore`.
